@@ -256,19 +256,21 @@ Do not enqueue these operations for background replay.
 V1 prediction is deterministic and explainable.
 
 Inputs:
-- configured service median/default duration,
-- recent completed duration median if enough samples,
-- active serving ticket elapsed time,
-- queue ahead,
+- configured service default duration,
+- a bounded set of recent completed durations,
+- active serving ticket durations and elapsed time,
+- eligible waiting-ticket durations ahead in Call Next order,
 - service capacity,
-- buffer.
+- a server-supplied uncertainty buffer.
 
-Output:
-- lower return time,
-- upper return time,
-- confidence label if useful.
+Algorithm:
+- use the median of valid recent durations when at least five samples exist; otherwise use the configured default,
+- derive each active lane's remaining duration as `max(0, expected duration - elapsed)`, with idle lanes at zero,
+- schedule each ticket ahead onto the least-loaded lane in queue-selection order,
+- use the least-loaded lane after those tickets as the expected start,
+- return `[max(now, expectedStart - buffer), expectedStart + buffer]`.
 
-No model/LLM is required.
+The calculator is deterministic, advisory, and does not alter queue ordering. The queue owner supplies ticket eligibility/order and the buffer; confidence labels are optional and omitted in the initial helper. No model/LLM is required.
 
 ## 14. History
 

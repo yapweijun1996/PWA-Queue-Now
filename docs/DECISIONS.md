@@ -76,3 +76,10 @@
 **Why:** one small wire contract minimizes accidental cross-role/customer data disclosure and keeps snapshots authoritative.
 
 **Consequence:** each update requires a scoped snapshot read; reconnects and revision gaps recover from a fresh snapshot. Persisted audit-event payloads must not be broadcast directly.
+
+## ADR-014 — Deterministic return-window estimator
+**Decision:** use the median of the supplied recent valid service-duration samples when at least five exist, otherwise the configured service default. Estimate remaining active work, schedule eligible tickets ahead in queue-selection order across the configured capacity, then center a return window on the projected start using a server-supplied buffer.
+
+**Why:** this is explainable and deterministic without implying precision or relying on prediction models.
+
+**Consequence:** the queue owner must provide the eligible ordered ticket durations and buffer; the estimate is advisory and refreshes with authoritative queue state.

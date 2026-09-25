@@ -1,5 +1,14 @@
 export { advanceQueueRevision } from "./revision.js";
 export {
+  estimateReturnWindow,
+  estimateServiceDurationSeconds,
+  MIN_HISTORY_SAMPLE_COUNT,
+  type ActiveServiceWork,
+  type EstimateReturnWindowInput,
+  type ReturnWindowEstimate,
+  type ServiceDurationEstimate,
+} from "./return-window.js";
+export {
   resolveCommandReceipt,
   type CommandReceipt,
   type CommandReceiptResolution,

@@ -21,13 +21,13 @@ The npm workspace, strict TypeScript/quality baseline, and GitHub Actions CI wor
 | PWA rules | 100% | PWA_STANDARD |
 | CI/CD plan | 100% | CI_CD |
 | Test strategy | 100% | TESTING |
-| Implementation | 6% | Workspace/CI foundation, tested queue-core helpers, initial customer API/event schemas, revision arithmetic, and command-receipt decision semantics; no runtime or user flows yet |
+| Implementation | 7% | Workspace/CI foundation, tested queue-core helpers, initial API/event schemas, revision/idempotency decisions, and deterministic estimator; no runtime or user flows yet |
 | Production deployment | 0% | Not started |
 | Pilot evidence | 0% | Not started |
 
 ## Overall delivery estimate
 
-**26%**
+**27%**
 
 Reason: product/engineering design is substantially defined and initial queue-core/shared-schema code is tested. Runtime, customer/merchant/display flows, deployment, and real-world evidence remain absent; documentation or unit tests alone are not product completion.
 
@@ -50,21 +50,22 @@ Reason: product/engineering design is substantially defined and initial queue-co
 - Queue sessions start at revision 0; pure revision arithmetic does not replace atomic DO persistence.
 - Command retries replay only on an exact command ID, actor scope, command type, and request-fingerprint match; the pure helper does not persist receipts.
 - WebSocket sends only strict `queue.changed` revision/time invalidations; clients refetch role-authorized snapshots.
+- Return-window estimates use a five-valid-sample median threshold, concurrent-lane workload simulation, and an explicit server-supplied buffer; the helper is advisory and pure.
 - `packages/contracts` owns shared enums/schemas; queue-core imports only its dependency-free domain subpath.
 - Initial business niche: small barber/salon/beauty walk-in operations.
 - Free-tier-first, not “guaranteed free forever.”
 
 ## Latest local verification
 
-On 2026-09-25, `npm ci`, lint, format check, strict TypeScript typecheck, all 575 Vitest cases, both workspace builds, and Node smoke tests of both built packages passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
+On 2026-09-25, `npm ci`, lint, format check, strict TypeScript typecheck, all 584 Vitest cases, both workspace builds, and Node smoke tests of both built packages passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
 
 ## Next implementation gate
 
 Finish the remaining M1 contracts and tests before backend/UI work:
-- complete shared API/event schema coverage,
-- join-retry/capability recovery and transactional command-receipt persistence,
-- queue revision, persisted-event transaction, and event-broadcast integration,
-- deterministic return-window estimator.
+- complete shared API schema coverage and review the retry/capability recovery contract,
+- transactional DO implementation of joins, commands, receipts, revisions, and persisted events,
+- wire the pure estimator to bounded history samples and select the runtime buffer policy,
+- runtime/API/browser integration and concurrency/restart verification.
 
 ## Blockers
 

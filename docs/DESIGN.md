@@ -134,11 +134,13 @@ Staff chooses:
 ## Return window
 
 V1 uses deterministic estimates:
-1. service configured duration or historical median,
-2. active serving tickets and expected remaining duration,
-3. number of waiting tickets,
-4. configured service capacity,
-5. uncertainty buffer.
+1. use the median of recent completed service durations when at least five valid samples exist; otherwise use the configured service default,
+2. compute active-service remaining work as `max(0, expected duration - elapsed)` and treat idle capacity as zero workload,
+3. assign each eligible waiting ticket ahead, in queue-selection order, to the least-loaded service lane,
+4. estimate the customer's start time from the least-loaded lane after those tickets,
+5. return a range around that estimate using a server-supplied uncertainty buffer, clamped so its start is not before now.
+
+The pure estimator receives already ordered, resolved durations; the DO/runtime remains responsible for selecting eligible tickets and the applicable buffer. The estimate is advisory and must refresh when authoritative queue state changes.
 
 Display a range, for example:
 

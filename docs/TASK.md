@@ -26,7 +26,7 @@ Legend:
 | QN-013 | P0 | Implement join idempotency semantics | BLOCKED |
 | QN-014 | P0 | Implement command idempotency semantics | DOING |
 | QN-015 | P0 | Implement queue revision/event envelope | DOING |
-| QN-016 | P1 | Implement deterministic return-window estimator | TODO |
+| QN-016 | P1 | Implement deterministic return-window estimator | DONE |
 | QN-017 | P0 | Add exhaustive legal/illegal transition tests | DONE |
 
 ## Durable Object Runtime

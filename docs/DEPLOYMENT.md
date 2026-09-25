@@ -40,12 +40,14 @@ Custom domain is optional and not required for a zero-cost infrastructure pilot 
 
 ## Migrations
 
-Durable Object class lifecycle is declared in Wrangler `exports`; the SQLite application schema is versioned separately in the DO's `schema_migrations` table.
+Durable Object class lifecycle is declared in Wrangler `exports`; the SQLite application schema is versioned separately in the DO's `schema_migrations` table. D1 schema changes use versioned SQL under `workers/queue-api/migrations/` and Wrangler's D1 migration tracking.
+
+For local development, run `npm run d1:migrate:local --workspace @queuenow/queue-api`. This explicitly applies migrations to the local D1 emulator; it does not create or modify a remote database. The local config intentionally has no production `database_id`. A real ID is added only when an authorized environment database is provisioned.
 
 Rules:
 - keep versioned SQL migration code in source control,
-- advance the schema version transactionally,
-- CI validates the Wrangler dry-run build and local SQLite runtime tests,
+- advance the DO schema version transactionally and apply D1 migrations through Wrangler,
+- CI validates the Wrangler dry-run build and local SQLite/D1 runtime tests,
 - production schema changes ship only through an authorized, controlled deploy,
 - class deletion/storage-backend changes and destructive SQL migrations require an explicit plan/backup strategy.
 

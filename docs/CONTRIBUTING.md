@@ -38,7 +38,7 @@ npm test
 npm run test:dist
 ```
 
-`npm test` builds the workspaces (including a Wrangler dry run), runs Node unit tests, and runs Worker tests in the local Cloudflare runtime. Run the API Worker locally with `npm run dev --workspace @queuenow/queue-api`. These commands do not deploy to Cloudflare.
+`npm test` builds the workspaces (including a Wrangler dry run), runs Node unit tests, and runs Worker tests in the local Cloudflare runtime. Run the API Worker locally with `npm run dev --workspace @queuenow/queue-api`. Apply D1 migrations locally with `npm run d1:migrate:local --workspace @queuenow/queue-api`; do not add `--remote` unless explicitly operating on an authorized environment. These commands do not deploy to Cloudflare.
 
 ## Pull requests
 

@@ -14,7 +14,11 @@ const QueueSessionServiceSnapshotSchema = z
   .object({
     serviceId: z.string().min(1).max(128),
     name: z.string().trim().min(1).max(120),
-    defaultDurationSeconds: z.number().int().min(1),
+    defaultDurationSeconds: z
+      .number()
+      .int()
+      .min(1)
+      .max(Math.floor(Number.MAX_SAFE_INTEGER / 1000)),
   })
   .strict();
 

@@ -89,6 +89,16 @@ Checked 2026-09-25 (page last updated 2026-04-23):
 - Workers' Web Crypto implementation supports HKDF key derivation and AES-GCM encrypt/decrypt.
 - The selected join-capability envelope still requires implementation and Cloudflare runtime regression tests.
 
+## Cloudflare D1 local migrations
+
+Official:
+https://developers.cloudflare.com/d1/wrangler-commands/
+
+Checked 2026-09-25 (page last updated 2026-04-21):
+- `wrangler d1 migrations apply <binding> --local` applies pending migrations to the local D1 database;
+- `--persist-to` selects the local persistence directory;
+- `d1 create` operates on remote databases, so this project does not use it during local verification.
+
 ## Cloudflare D1 pricing
 
 Official:

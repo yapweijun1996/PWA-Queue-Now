@@ -18,6 +18,7 @@ Fast and exhaustive:
 - D1 projection
 - auth/capability enforcement
 - Cloudflare Web Crypto join-recovery envelope round-trip, wrong-key rejection, tamper rejection, and context binding
+- D1 migration/runtime: migration replay, uniqueness/foreign-key constraints, active queue/shop/merchant filtering, deterministic service ordering, and validated session snapshots
 - SQLite DO join transaction: ticket/hash/receipt/event atomicity, ID-only, correct, and wrong recovery proof, intent conflict, capability-hash corruption, queue pause/close behavior, counter-exhaustion rollback, and session-scoped revisions
 - WebSocket event contracts
 

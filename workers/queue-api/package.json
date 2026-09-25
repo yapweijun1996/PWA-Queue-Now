@@ -6,6 +6,7 @@
   "scripts": {
     "build": "wrangler deploy --dry-run --outdir=dist",
     "dev": "wrangler dev --local",
+    "d1:migrate:local": "wrangler d1 migrations apply DB --local",
     "test": "vitest run --config vitest.config.ts",
     "pretypecheck": "npm run build --workspace @queuenow/contracts && npm run build --workspace @queuenow/queue-core",
     "typecheck": "wrangler types && tsc --noEmit -p tsconfig.json"

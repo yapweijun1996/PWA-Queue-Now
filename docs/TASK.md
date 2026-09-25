@@ -13,7 +13,7 @@ Legend:
 | QN-001 | P0 | Initialize public monorepo/workspaces | DONE |
 | QN-002 | P0 | Add strict TypeScript, lint, format, unit-test baseline | DONE |
 | QN-003 | P0 | Define shared API/event schemas with runtime validation | DOING |
-| QN-004 | P1 | Add local Wrangler dev config and environment template | DOING |
+| QN-004 | P1 | Add local Wrangler config, D1 binding/migrations, and environment template | DOING |
 | QN-005 | P1 | Add version/build metadata contract | TODO |
 
 ## Queue Core

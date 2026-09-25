@@ -11,6 +11,13 @@
       }
     ]
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "queuenow",
+      "migrations_dir": "migrations"
+    }
+  ],
   "exports": {
     "QueueDurableObject": {
       "type": "durable-object",

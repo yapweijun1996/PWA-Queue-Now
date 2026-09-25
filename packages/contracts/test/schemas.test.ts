@@ -163,11 +163,22 @@ describe("merchant queue session schemas", () => {
     ).toBe("OPEN");
   });
 
-  it("rejects unsafe sequence values, duplicate services, and client-supplied actor scopes", () => {
+  it("rejects unsafe sequence/duration values, duplicate services, and client-supplied actor scopes", () => {
     expect(
       QueueSessionConfigSnapshotSchema.safeParse({
         ...validConfigSnapshot,
         startSequence: Number.MAX_SAFE_INTEGER,
+      }).success,
+    ).toBe(false);
+    expect(
+      QueueSessionConfigSnapshotSchema.safeParse({
+        ...validConfigSnapshot,
+        services: [
+          {
+            ...validConfigSnapshot.services[0],
+            defaultDurationSeconds: Math.floor(Number.MAX_SAFE_INTEGER / 1000) + 1,
+          },
+        ],
       }).success,
     ).toBe(false);
     expect(

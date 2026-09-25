@@ -96,12 +96,7 @@ Rate policy should combine safe dimensions such as queue, session, IP-derived ab
 
 ## Realtime isolation
 
-Connection scopes:
-- customer → own ticket + safe queue data,
-- merchant → authorized queue operational data,
-- display → sanitized public data.
-
-Broadcast is generated per scope, not “broadcast full object then hide in frontend.”
+WebSocket connections are authorized for their role and queue/ticket scope. Every message is only a payload-free `queue.changed` revision notification; ticket, merchant, and display data is fetched through role-authorized HTTP snapshots. Customer snapshots require the ticket capability; merchant snapshots require staff authorization; display snapshots contain only sanitized public data. Never broadcast a full object and rely on frontend hiding.
 
 ## Public display
 

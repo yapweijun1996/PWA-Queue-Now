@@ -89,11 +89,21 @@ Only eligible states may cancel.
 WebSocket upgrade.
 
 Authorization depends on connection role:
-- customer: only own safe ticket events or safe public queue events,
-- merchant: authorized shop operational stream,
-- display: read-only sanitized display stream.
+- customer: own-ticket scope or public queue scope,
+- merchant: authorized shop scope,
+- display: read-only public display scope.
 
-Never send one customer's capability/private metadata to another connection.
+Every authorized connection receives only this strict invalidation message:
+
+```json
+{
+  "type": "queue.changed",
+  "queueRevision": 42,
+  "occurredAt": "2026-09-25T13:40:00Z"
+}
+```
+
+The message carries no ticket or customer payload. Clients fetch a role-authorized snapshot over HTTP after a newer revision; on reconnect or a revision gap, fetch a fresh snapshot. The revision orders messages; the timestamp is informational. Never send one customer's capability/private metadata to another connection.
 
 ## Merchant auth
 

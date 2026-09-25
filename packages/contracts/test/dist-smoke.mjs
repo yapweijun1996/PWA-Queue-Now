@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { JoinQueueRequestSchema } from "../dist/index.js";
+import { JoinQueueRequestSchema, QueueChangedEventSchema } from "../dist/index.js";
 
 assert.equal(
   JoinQueueRequestSchema.safeParse({
@@ -12,6 +12,23 @@ assert.equal(
   JoinQueueRequestSchema.safeParse({
     joinRequestId: "not-a-uuid",
     serviceId: "service_01",
+  }).success,
+  false,
+);
+assert.equal(
+  QueueChangedEventSchema.safeParse({
+    type: "queue.changed",
+    queueRevision: 1,
+    occurredAt: "2026-09-25T13:40:00Z",
+  }).success,
+  true,
+);
+assert.equal(
+  QueueChangedEventSchema.safeParse({
+    type: "queue.changed",
+    queueRevision: 1,
+    occurredAt: "2026-09-25T13:40:00Z",
+    payload: { ticketCapability: "must-not-be-broadcast" },
   }).success,
   false,
 );

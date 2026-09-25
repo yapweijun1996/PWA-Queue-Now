@@ -8,6 +8,15 @@ export const QueueStatusSchema = z.enum(queueStatuses);
 export const QueueRevisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 export type QueueRevision = z.infer<typeof QueueRevisionSchema>;
 
+export const QueueChangedEventSchema = z
+  .object({
+    type: z.literal("queue.changed"),
+    queueRevision: QueueRevisionSchema,
+    occurredAt: z.iso.datetime({ offset: false }),
+  })
+  .strict();
+export type QueueChangedEvent = z.infer<typeof QueueChangedEventSchema>;
+
 const ReturnWindowSchema = z
   .object({
     from: z.iso.datetime({ offset: false }),

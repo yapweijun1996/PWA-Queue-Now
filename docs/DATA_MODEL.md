@@ -225,7 +225,7 @@ occurred_at
 safe_payload_json
 ```
 
-Retain enough recent events for reconnect/audit. Long-term retention can be projected/compacted.
+Retain enough recent events for audit/projection as required. These persisted records are not WebSocket payloads: realtime sends only the strict `queue.changed` invalidation, and clients fetch authorized snapshots. Long-term retention can be projected/compacted.
 
 ### projections_pending
 

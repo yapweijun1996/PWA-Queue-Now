@@ -210,30 +210,24 @@ No automatic destructive transition.
 
 Use Durable Object Hibernation WebSockets.
 
-Server broadcasts versioned events, e.g.:
+Server broadcasts only this strict, payload-free invalidation:
 
 ```json
 {
-  "type": "ticket.updated",
+  "type": "queue.changed",
   "queueRevision": 182,
-  "ticketId": "...",
-  "occurredAt": "...",
-  "payload": {}
+  "occurredAt": "2026-09-25T13:40:00Z"
 }
 ```
 
-Clients:
-- apply events in revision order,
-- detect gaps,
-- request authoritative snapshot on gap/reconnect,
-- never treat local optimistic state as authoritative.
+Clients ignore duplicate/older revisions and fetch a role-authorized authoritative snapshot after a newer revision. A revision gap also forces a snapshot. WebSocket messages never carry ticket, customer, capability, or operational payload data.
 
 ## 11. Reconnection
 
 On WebSocket reconnect:
-1. client sends last known revision,
-2. server may provide incremental safe events or a full snapshot,
-3. snapshot replaces client-derived state.
+1. establish the role-authorized connection,
+2. fetch a fresh role-authorized snapshot over HTTP,
+3. replace client-derived state with that snapshot; subsequent revision notifications trigger another snapshot.
 
 Customer ticket status request requires ticket capability.
 

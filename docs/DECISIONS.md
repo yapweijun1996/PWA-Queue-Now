@@ -69,3 +69,10 @@
 **Why:** provider plans/usage change.
 
 **Consequence:** usage must be measured and documented.
+
+## ADR-013 — Realtime invalidation-only events
+**Decision:** WebSockets send a strict `queue.changed` message containing only the queue revision and timestamp; clients retrieve role-authorized snapshots over HTTP.
+
+**Why:** one small wire contract minimizes accidental cross-role/customer data disclosure and keeps snapshots authoritative.
+
+**Consequence:** each update requires a scoped snapshot read; reconnects and revision gaps recover from a fresh snapshot. Persisted audit-event payloads must not be broadcast directly.

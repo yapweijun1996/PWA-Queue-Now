@@ -86,7 +86,7 @@ Examples:
 
 ## Package dependency direction
 
-`packages/contracts` owns shared queue enums, API request/response schemas, and inferred wire types. Its `domain` subpath contains only dependency-free domain values/types; runtime validators are isolated in the schema module. `packages/queue-core` may depend on `contracts/domain`, but contracts must never depend on queue-core. Workers validate untrusted requests with contracts before applying queue-core rules. A generic event envelope is not sufficient to prove role-specific payloads contain no private data.
+`packages/contracts` owns shared queue enums, API request/response/event schemas, and inferred wire types. Its `domain` subpath contains only dependency-free domain values/types; runtime validators are isolated in the schema module. `packages/queue-core` may depend on `contracts/domain`, but contracts must never depend on queue-core. Workers validate untrusted requests with contracts before applying queue-core rules. Realtime messages are strict, payload-free `queue.changed` invalidations; clients fetch role-authorized snapshots instead of receiving generic private event payloads. Any future payload-bearing event requires a role-specific strict schema.
 
 ## Web app
 
@@ -122,7 +122,6 @@ Use DO Hibernation WebSocket API.
 Connection metadata attachment may contain:
 - connection role,
 - safe queue/ticket identifier,
-- last revision,
 - authorization scope fingerprint.
 
 Do not serialize raw bearer/capability secrets into WebSocket attachments.
@@ -180,7 +179,7 @@ If one future queue becomes extremely high-throughput, redesign may be required.
 - use WebSockets for live updates,
 - use hibernation,
 - avoid high-frequency heartbeat messages,
-- batch safe non-critical realtime payloads when useful,
+- keep WebSocket traffic to post-commit revision invalidations; do not send state payloads,
 - avoid unnecessary D1 writes,
 - project only terminal/history data that is needed.
 

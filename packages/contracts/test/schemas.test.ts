@@ -3,6 +3,7 @@ import {
   CancelTicketRequestSchema,
   JoinQueueRequestSchema,
   JoinQueueResponseSchema,
+  QueueChangedEventSchema,
   QueueRevisionSchema,
   UpdatePresenceRequestSchema,
 } from "../src/index.js";
@@ -93,5 +94,32 @@ describe("customer API schemas", () => {
         commandId: "02f8fcd6-3d5a-4e10-ae40-2f5a90e8a223",
       }).success,
     ).toBe(true);
+  });
+});
+
+describe("realtime event schema", () => {
+  const validEvent = {
+    type: "queue.changed",
+    queueRevision: 42,
+    occurredAt: "2026-09-25T13:40:00Z",
+  };
+
+  it("accepts a payload-free queue change notification", () => {
+    expect(QueueChangedEventSchema.parse(validEvent)).toEqual(validEvent);
+  });
+
+  it("rejects private payloads and invalid event metadata", () => {
+    expect(
+      QueueChangedEventSchema.safeParse({
+        ...validEvent,
+        payload: { ticketCapability: "must-not-be-broadcast" },
+      }).success,
+    ).toBe(false);
+    expect(
+      QueueChangedEventSchema.safeParse({ ...validEvent, type: "ticket.updated" }).success,
+    ).toBe(false);
+    expect(QueueChangedEventSchema.safeParse({ ...validEvent, queueRevision: -1 }).success).toBe(
+      false,
+    );
   });
 });

@@ -25,6 +25,7 @@ Body:
 ```json
 {
   "joinRequestId": "uuid",
+  "joinRecoverySecret": "<base64url-encoded 32-byte random secret>",
   "serviceId": "..."
 }
 ```
@@ -45,11 +46,15 @@ Response:
     },
     "queueRevision": 42
   },
-  "ticketCapability": "returned-once-or-via-reviewed-safe-retry-contract"
+  "ticketCapability": "<server-generated high-entropy secret>"
 }
 ```
 
 The capability must not be exposed in logs.
+
+For each logical join, the client generates a separate 32-byte CSPRNG `joinRecoverySecret` and persists it with `joinRequestId` before sending the request. It reuses both only for an explicit online retry of the same queue/session/service intent. `joinRequestId` locates a receipt; it is not authorization. The recovery secret is proof required to replay a retained join result and is never returned by the API.
+
+The Durable Object stores the capability verifier on the ticket and a versioned encrypted capability envelope in the join receipt; it stores neither raw secret. The request fingerprint binds queue, session, and service, excluding the request ID and recovery secret. A matching receipt is replayed only after envelope decryption succeeds. Invalid proof returns `JOIN_RECOVERY_INVALID` without ticket data or mutation; changed intent returns `IDEMPOTENCY_CONFLICT`. Join receipts have a 24-hour retry horizon. The client replaces the pending recovery secret with the returned ticket capability only after safely persisting the ticket and capability. Never log either secret or automatically replay a pending join offline/background.
 
 ## Customer ticket
 
@@ -227,6 +232,7 @@ Representative codes:
 - `INVALID_SERVICE`
 - `TICKET_NOT_FOUND`
 - `CAPABILITY_INVALID`
+- `JOIN_RECOVERY_INVALID`
 - `UNAUTHORIZED`
 - `FORBIDDEN`
 - `ILLEGAL_TRANSITION`

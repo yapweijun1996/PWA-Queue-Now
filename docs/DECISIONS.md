@@ -90,3 +90,10 @@
 **Why:** session creation, its configuration snapshot, and retry behavior need one atomic owner; D1/config changes must not alter an already-open session or its exact retry result.
 
 **Consequence:** the Worker must authenticate and authorize before querying a receipt or calling the DO. The internal DO command is not a public endpoint, `actorScope` is server-derived, and other command types still require the generic receipt implementation.
+
+## ADR-016 — Separate proof for anonymous join recovery
+**Decision:** each logical join uses a client-generated 32-byte recovery secret in addition to its UUID `joinRequestId`. The UUID selects a receipt but does not authorize replay. The DO stores no raw recovery secret or capability: it stores the ticket capability hash and a versioned HKDF-SHA-256/AES-256-GCM envelope in the 24-hour join receipt. An exact retry must match queue/session/service intent and decrypt the envelope with the recovery secret before returning the original result and capability.
+
+**Why:** a committed join must be safely recoverable if its HTTP response is lost, without turning the idempotency identifier into a bearer credential or storing the raw ticket capability.
+
+**Consequence:** the client must persist the pending ID and recovery secret before sending, then replace them with the ticket/capability only after safely storing the response. Wrong proof returns no ticket data; altered intent conflicts. Retries are explicit and online-only, never background-replayed. The cryptographic envelope and atomic retry behavior still require Cloudflare runtime implementation and tests.

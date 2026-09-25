@@ -56,13 +56,17 @@ Assert:
 
 ### 2. Join retry
 
-Send same `joinRequestId` multiple times concurrently.
+Send the same `joinRequestId`, recovery secret, and intent multiple times concurrently.
 
 Assert:
-- one logical ticket
-- one sequence consumed
-- retries return same logical result
-- no additional revision for duplicate replay
+- one logical ticket and one sequence consumed
+- retries return the same ticket and capability
+- no additional revision/event for duplicate replay
+- the same ID with a wrong recovery secret returns `JOIN_RECOVERY_INVALID`, no ticket data, and no mutation
+- the same ID with changed intent returns `IDEMPOTENCY_CONFLICT`
+- a tampered envelope or mismatched AAD fails closed
+- persisted receipt contains no raw recovery secret or capability
+- exact recovery succeeds only within the documented 24-hour horizon
 
 ### 3. Call Next race
 

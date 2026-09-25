@@ -113,24 +113,25 @@ A sequence may reset in a new session.
 
 ## 5. Join
 
-Client generates a UUID `join_request_id`.
+Before a join attempt, the client generates a UUID `joinRequestId` and a separate 32-byte CSPRNG `joinRecoverySecret` (canonical unpadded base64url). Persist both as a pending request before sending. Reuse them only for an explicit online retry of the exact same queue/session/service intent. The ID locates a receipt; it is not authorization.
 
 Request contains:
 - queue public slug/id
 - service id
-- `join_request_id`
+- `joinRequestId`
+- `joinRecoverySecret`
 
 Server:
-1. validates queue open,
-2. checks idempotency record,
-3. allocates next sequence atomically,
-4. creates ticket,
-5. creates cryptographically random ticket capability secret,
-6. calculates initial estimate,
-7. persists authoritative state,
-8. returns ticket view and capability.
+1. validates queue open and request shape,
+2. checks for a retained receipt and validates its intent fingerprint,
+3. for an exact retry, decrypts the capability envelope with the recovery secret and verifies the capability hash before returning the original ticket result and capability,
+4. for a new request, allocates the next sequence atomically,
+5. creates the ticket and cryptographically random capability,
+6. calculates the initial estimate,
+7. atomically persists ticket, receipt, safe result, and encrypted capability envelope,
+8. returns the ticket view and capability.
 
-Retry with the same `join_request_id` must return the same ticket.
+A changed intent with the same ID fails with `IDEMPOTENCY_CONFLICT`; a wrong recovery secret fails with `JOIN_RECOVERY_INVALID` and returns no ticket data. The receipt stores no raw recovery secret or raw capability. Its capability envelope uses HKDF-SHA-256 and AES-256-GCM, with authenticated data bound to the queue/session/request/service/ticket. The join retry horizon is 24 hours. After a successful response, the client persists the ticket and capability before deleting the pending recovery secret.
 
 ## 6. Ticket lifecycle
 
@@ -249,7 +250,7 @@ Forbidden offline:
 - cancel,
 - presence mutation.
 
-Do not enqueue these operations for background replay.
+Do not enqueue these operations for background replay. A pending join may retain its request ID and recovery secret for recovery, but the client must never submit it automatically on reconnection or through Background Sync; only an explicit user retry while online may resend it.
 
 ## 13. Prediction
 

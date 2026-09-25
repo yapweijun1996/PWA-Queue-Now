@@ -4,6 +4,7 @@ import { JoinQueueRequestSchema, QueueChangedEventSchema } from "../dist/index.j
 assert.equal(
   JoinQueueRequestSchema.safeParse({
     joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+    joinRecoverySecret: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
     serviceId: "service_01",
   }).success,
   true,
@@ -11,6 +12,7 @@ assert.equal(
 assert.equal(
   JoinQueueRequestSchema.safeParse({
     joinRequestId: "not-a-uuid",
+    joinRecoverySecret: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
     serviceId: "service_01",
   }).success,
   false,

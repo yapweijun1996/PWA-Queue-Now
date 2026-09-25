@@ -53,6 +53,7 @@ Reason: product/engineering design is substantially defined; queue-core contract
 - Return-window estimates use a five-valid-sample median threshold, concurrent-lane workload simulation, and an explicit server-supplied buffer; the helper is advisory and pure.
 - The public Worker exposes only `/health`; the SQLite DO has schema v2 and an internal queue-open command, but the public Worker does not route it.
 - Session open atomically persists a validated server-supplied config snapshot and an exact command receipt; actor scope is hashed and receipts have a 24-hour retry horizon. The public Worker has no D1 lookup or merchant authorization yet, so the internal command must remain unforwarded.
+- Join recovery contract selected in ADR-016: `joinRequestId` is only a selector; a separate 32-byte secret proves replay of a DO-encrypted capability envelope. Shared request schema and docs are updated; transactional crypto/runtime behavior remains unimplemented.
 - `packages/contracts` owns shared enums/schemas; queue-core imports only its dependency-free domain subpath.
 - Initial business niche: small barber/salon/beauty walk-in operations.
 - Free-tier-first, not “guaranteed free forever.”
@@ -63,8 +64,8 @@ On 2026-09-25, `npm ci`, format/lint checks, strict TypeScript typechecks (inclu
 
 ## Next implementation gate
 
-Keep the DO session command internal until the API can authenticate merchant calls and retrieve authoritative D1 configuration; then continue the persisted queue-flow slice while join retries remain gated on the capability-recovery decision:
-- complete shared API schema coverage and document the unresolved join retry/capability recovery contract,
+Keep the DO session command internal until the API can authenticate merchant calls and retrieve authoritative D1 configuration; then continue the persisted queue-flow slice using the reviewed join-recovery contract:
+- implement join receipt encryption/decryption and exact retries atomically with ticket, sequence, revision, and event writes,
 - implement merchant auth/authorization and D1 configuration before forwarding the session-open command,
 - implement transactional DO handlers for joins and staff/customer commands with receipts, revisions, and persisted events,
 - wire the pure estimator to bounded history samples and select the runtime buffer policy,
@@ -72,7 +73,6 @@ Keep the DO session command internal until the API can authenticate merchant cal
 
 ## Blockers
 
-- `QN-013` is blocked on a safe join-retry/capability-recovery contract. The API requires retrying the same join to return the same ticket and includes a server-generated capability, while storage currently keeps only its hash. The `joinRequestId` is described as an idempotency UUID, not an authorization credential. Do not return a capability based only on replaying it until the recovery credential, storage, and redaction contract is explicitly reviewed. Other independent work can continue.
 - `QN-026` still needs real DO restart/eviction evidence. An exploratory `evictDurableObject` test under the current local Vitest runtime timed out after its completion log; it is not counted as verification. Resolve the test-harness issue or use another defensible runtime readback before marking restart persistence done.
 
 Production deployment will eventually require:

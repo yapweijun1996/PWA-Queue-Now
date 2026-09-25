@@ -216,13 +216,17 @@ Opening a queue persists its session snapshot and the `OPEN_QUEUE_SESSION` recei
 
 ```text
 join_request_id
+request_fingerprint
 ticket_id
 safe_result_json
+ticket_capability_envelope_json
 created_at
 expires_at
 ```
 
-The safe result must not become a general disclosure path for the ticket secret. Implementation must decide how the original capability is replayed safely to the same joining client.
+`request_fingerprint` hashes the validated queue/session/service intent; it excludes `join_request_id` and `joinRecoverySecret`. `safe_result_json` stores the original ticket response without `ticketCapability`. `ticket_capability_envelope_json` stores a versioned envelope containing HKDF salt, AES-GCM nonce, and ciphertext for the server-generated capability. Derive the AES-256 key with HKDF-SHA-256 from the client-provided 32-byte recovery secret, a fresh 16-byte salt, and the domain-separated info string `QueueNow join capability recovery v1`. Use AES-256-GCM with a fresh 12-byte nonce and authenticated data binding the protocol version, queue, session, join request, service, and ticket IDs.
+
+The recovery secret is never persisted. The ticket row keeps only the capability hash; the receipt keeps only the encrypted capability envelope. On retry, require a matching request fingerprint, decrypt with the supplied recovery secret, and verify the plaintext capability against the ticket hash before returning the stored result and capability. Wrong proof fails with `JOIN_RECOVERY_INVALID` without disclosing ticket data or mutating state; changed intent fails with `IDEMPOTENCY_CONFLICT`. Atomically persist the ticket, sequence allocation, revision/event, safe result, and envelope. Retain receipts for 24 hours; retry guarantees end at expiry.
 
 ### events
 

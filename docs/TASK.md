@@ -23,7 +23,7 @@ Legend:
 | QN-010 | P0 | Implement lifecycle transition table | DONE |
 | QN-011 | P0 | Implement independent presence model | DONE |
 | QN-012 | P0 | Implement queue-session sequence allocator contract | DONE |
-| QN-013 | P0 | Implement join idempotency semantics | BLOCKED |
+| QN-013 | P0 | Implement join idempotency semantics | DOING |
 | QN-014 | P0 | Implement command idempotency semantics | DOING |
 | QN-015 | P0 | Implement queue revision/event envelope | DOING |
 | QN-016 | P1 | Implement deterministic return-window estimator | DONE |

@@ -39,6 +39,14 @@ Requirements:
 
 Do not treat `A025` as authorization.
 
+### Join retry recovery
+
+`joinRequestId` is only a receipt selector and is never authorization. The client-generated `joinRecoverySecret` is a separate 32-byte CSPRNG credential encoded as canonical unpadded base64url. Possession of it is required to recover the ticket capability after a lost join response.
+
+The DO must never persist or log the raw recovery secret. Persist the ticket capability verifier and a versioned envelope containing the encrypted capability in the join receipt. Derive the envelope key with HKDF-SHA-256 and encrypt with AES-256-GCM; bind the queue/session/request/service/ticket context as authenticated data. Return no receipt result or ticket data when recovery proof fails. Redact both credentials from logs, audit, and telemetry.
+
+The client must persist the pending request ID and recovery secret before sending a join, then persist the returned ticket and capability before deleting the pending recovery secret. If pending storage fails, do not send the mutation. Retry only after the client is online and the user explicitly retries; never use Background Sync or automatic offline replay.
+
 ## Merchant session
 
 Implementation requirements:

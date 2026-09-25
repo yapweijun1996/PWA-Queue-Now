@@ -19,7 +19,8 @@
 ## Correctness
 
 - [ ] 50 concurrent unique joins create 50 unique sequence numbers.
-- [ ] Repeated identical join id does not consume another number.
+- [ ] Repeated identical join ID with the correct recovery secret returns the same ticket without consuming another number.
+- [ ] Join ID alone cannot recover a ticket capability; wrong recovery proof fails without mutation or ticket data.
 - [ ] Concurrent Call Next cannot select same ticket twice.
 - [ ] Duplicate command ID is not executed twice.
 - [ ] Illegal lifecycle transitions fail without mutation.
@@ -36,7 +37,7 @@
 - [ ] Cookie-auth mutation CSRF defense passes.
 - [ ] Login/join abuse controls exist.
 - [ ] Display stream contains no secret/private fields.
-- [ ] Logs redact authorization/session/capability secrets.
+- [ ] Logs redact authorization, session, ticket-capability, and join-recovery secrets.
 - [ ] Frontend bundle contains no production secret.
 
 ## Realtime

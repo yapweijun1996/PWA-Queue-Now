@@ -93,9 +93,17 @@ const CustomerTicketSnapshotSchema = z
   })
   .strict();
 
+const JoinRecoverySecretSchema = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/,
+    "Expected unpadded base64url encoding of 32 bytes.",
+  );
+
 export const JoinQueueRequestSchema = z
   .object({
     joinRequestId: z.string().uuid(),
+    joinRecoverySecret: JoinRecoverySecretSchema,
     serviceId: z.string().min(1),
   })
   .strict();

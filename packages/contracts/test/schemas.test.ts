@@ -32,24 +32,48 @@ describe("customer API schemas", () => {
     expect(
       JoinQueueRequestSchema.parse({
         joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+        joinRecoverySecret: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
         serviceId: "service_01",
       }),
     ).toEqual({
       joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+      joinRecoverySecret: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
       serviceId: "service_01",
     });
   });
 
-  it("rejects malformed join identifiers and unknown request fields", () => {
+  it("rejects malformed join identifiers, recovery secrets, and unknown fields", () => {
     expect(
       JoinQueueRequestSchema.safeParse({
         joinRequestId: "not-a-uuid",
+        joinRecoverySecret: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
         serviceId: "service_01",
       }).success,
     ).toBe(false);
     expect(
       JoinQueueRequestSchema.safeParse({
         joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+        serviceId: "service_01",
+      }).success,
+    ).toBe(false);
+    expect(
+      JoinQueueRequestSchema.safeParse({
+        joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+        joinRecoverySecret: "weak-or-padded=",
+        serviceId: "service_01",
+      }).success,
+    ).toBe(false);
+    expect(
+      JoinQueueRequestSchema.safeParse({
+        joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+        joinRecoverySecret: `${"A".repeat(42)}B`,
+        serviceId: "service_01",
+      }).success,
+    ).toBe(false);
+    expect(
+      JoinQueueRequestSchema.safeParse({
+        joinRequestId: "e6a0180e-f189-4a6f-b254-3e2e03497b47",
+        joinRecoverySecret: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
         serviceId: "service_01",
         customerName: "Not collected in V1",
       }).success,

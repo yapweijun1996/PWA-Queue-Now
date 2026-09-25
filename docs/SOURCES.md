@@ -80,6 +80,15 @@ Checked 2026-09-25 (pages last updated 2026-08-20):
 - tests run in a local Miniflare Workers runtime,
 - the plugin requires Vitest 4.1 or later.
 
+## Cloudflare Workers Web Crypto
+
+Official:
+https://developers.cloudflare.com/workers/runtime-apis/web-crypto/
+
+Checked 2026-09-25 (page last updated 2026-04-23):
+- Workers' Web Crypto implementation supports HKDF key derivation and AES-GCM encrypt/decrypt.
+- The selected join-capability envelope still requires implementation and Cloudflare runtime regression tests.
+
 ## Cloudflare D1 pricing
 
 Official:

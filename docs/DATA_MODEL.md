@@ -157,7 +157,9 @@ queue_revision
 is_current
 ```
 
-Only one active session per DO. A partial unique index enforces one `is_current = 1` row; closed sessions have `is_current = 0`. At session creation, initialize `next_sequence` from the queue definition's `start_sequence`.
+Only one active session per DO. A partial unique index enforces one `is_current = 1` row; closed sessions have `is_current = 0`. At session creation, initialize `next_sequence` from the queue definition's `start_sequence`. Store only active services in `config_snapshot_json`, including each service ID, name, and default duration, plus the prefix, grace period, and service capacity. Generate `session_id` server-side.
+
+The strict config snapshot accepts a 1–8 character uppercase alphanumeric prefix, a positive safe `start_sequence` that leaves room for the next counter value, nonnegative grace seconds, positive service capacity, and 1–100 active services. Service IDs must be unique (1–128 characters); service names are trimmed and limited to 120 characters; default durations are positive whole seconds.
 
 `next_sequence` is the next unused positive safe integer for that session. The pure `calculateNextSequenceAllocation` helper returns that value and its successor; it rejects invalid or overflowing counters. Display numbers concatenate the session prefix with the decimal sequence padded to a minimum of three digits (for example `A025` and `A1000`). Display numbers are presentation data, not credentials.
 
@@ -195,18 +197,20 @@ Constraints:
 
 ```text
 command_id
-actor_scope
+actor_scope_hash
 command_type
 request_fingerprint
 result_json
-accepted_revision
+result_revision
 created_at
 expires_at
 ```
 
-`command_id` is unique among retained receipts for the queue. `actor_scope` is a stable authenticated principal/ticket scope, never a session token or capability. `request_fingerprint` is a digest of the validated command intent (including target and parameters, excluding `command_id` and authentication material). `result_json` contains only the safe accepted or rejected response.
+`command_id` is unique among retained receipts for the queue. `actor_scope_hash` is a SHA-256 digest of a stable authenticated principal/ticket scope, never a session token or capability; use canonical IDs rather than email addresses. `request_fingerprint` is a digest of the validated command intent (including target and parameters, excluding `command_id` and authentication material). `result_json` contains only the safe accepted or rejected HTTP status/body. `result_revision` records the revision associated with that result.
 
-Authenticate and authorize each retry before looking up its receipt. An exact match on command ID, actor scope, command type, and fingerprint replays the stored result without another mutation, revision, or event. Reuse of an ID with any different identity is `IDEMPOTENCY_CONFLICT`. With no receipt, the DO must apply the command and persist its receipt in the same transaction as state, revision, and event. The receipt TTL must be no shorter than the supported retry horizon; choose and document that duration before runtime rollout. After expiry, the idempotency guarantee ends. The pure queue-core decision helper does not provide persistence or concurrency guarantees.
+Authenticate and authorize each retry before looking up its receipt. An exact match on command ID, actor-scope hash, command type, and fingerprint replays the stored result without another mutation, revision, or event. Reuse of an ID with any different identity is `IDEMPOTENCY_CONFLICT`. Persist accepted state and its receipt in the same transaction. V1's documented retry horizon is 24 hours; the DO deletes expired receipts during the next command transaction, and the guarantee ends at `expires_at`. The pure queue-core decision helper does not provide persistence or concurrency guarantees.
+
+Opening a queue persists its session snapshot and the `OPEN_QUEUE_SESSION` receipt in one transaction. The internal command's request fingerprint covers the target `queue_id`; configuration is server-supplied from D1 and is snapshotted only on first acceptance. The client-visible open response is immutable and starts at revision 0, so an exact retry replays it even if the queue is later paused or closed. If no receipt exists, the internal Worker must supply a valid snapshot; at most 100 active services are currently accepted per snapshot.
 
 ### join_receipts
 

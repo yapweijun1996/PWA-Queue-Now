@@ -83,3 +83,10 @@
 **Why:** this is explainable and deterministic without implying precision or relying on prediction models.
 
 **Consequence:** the queue owner must provide the eligible ordered ticket durations and buffer; the estimate is advisory and refreshes with authoritative queue state.
+
+## ADR-015 — Persisted queue-open command
+**Decision:** Opening a queue creates a server-generated session ID, snapshots the validated queue/service configuration, and stores the command receipt in the same DO SQLite transaction. The open result is immutable at revision 0. Store a hash of the authenticated actor scope, not its raw value. Command receipts expire after a documented 24-hour retry horizon and are pruned during a later command transaction.
+
+**Why:** session creation, its configuration snapshot, and retry behavior need one atomic owner; D1/config changes must not alter an already-open session or its exact retry result.
+
+**Consequence:** the Worker must authenticate and authorize before querying a receipt or calling the DO. The internal DO command is not a public endpoint, `actorScope` is server-derived, and other command types still require the generic receipt implementation.

@@ -7,6 +7,12 @@
     "build": "wrangler deploy --dry-run --outdir=dist",
     "dev": "wrangler dev --local",
     "test": "vitest run --config vitest.config.ts",
+    "pretypecheck": "npm run build --workspace @queuenow/contracts && npm run build --workspace @queuenow/queue-core",
     "typecheck": "wrangler types && tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@queuenow/contracts": "0.1.0",
+    "@queuenow/queue-core": "0.1.0",
+    "zod": "^4.6.5"
   }
 }

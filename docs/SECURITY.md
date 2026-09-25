@@ -63,6 +63,8 @@ Every merchant command checks:
 
 Frontend hidden buttons are not authorization.
 
+The API Worker must authenticate and authorize before forwarding any mutation to the DO or looking up a command receipt. A Durable Object namespace binding is an internal service boundary, not an end-user authorization mechanism. Derive actor scope from the authenticated principal, use a canonical ID, hash it for receipt storage, and never accept it from the browser. Keep `/_internal/*` DO paths unforwarded by public routes.
+
 ## CSRF
 
 For cookie-auth merchant mutation:

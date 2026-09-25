@@ -154,6 +154,34 @@ POST /api/merchant/tickets/:ticketId/recall
 POST /api/merchant/tickets/:ticketId/cancel
 ```
 
+### Open queue command
+
+Request body:
+
+```json
+{
+  "commandId": "uuid"
+}
+```
+
+After authenticating and authorizing the queue, the Worker derives the actor scope and calls the DO only through its internal namespace binding. The DO checks a retained receipt before requiring current configuration, so an exact retry can replay even if D1 is unavailable or the service configuration has changed. A new open requires a validated queue/service snapshot from D1 (`QUEUE_CONFIG_REQUIRED` is an internal DO response); never accept `actorScope` or configuration from the browser, and never expose the DO's `/_internal/*` paths through the public Worker.
+
+The DO atomically stores a server-generated session ID, the configuration snapshot, and the command receipt. A session opens at revision 0. Exact retries within the 24-hour retry horizon return the original result; reusing the command ID for a different actor or queue intent returns `IDEMPOTENCY_CONFLICT`. Configuration changes made after initial acceptance do not alter the stored session or its replayed response.
+
+Response:
+
+```json
+{
+  "sessionId": "server-generated-uuid",
+  "queueId": "...",
+  "status": "OPEN",
+  "openedAt": "2026-09-25T13:40:00Z",
+  "queueRevision": 0
+}
+```
+
+This describes the target public contract; the current Worker scaffold does not expose this route until merchant authentication/authorization and D1 configuration are implemented.
+
 ## Snapshot
 
 ```text
@@ -192,6 +220,8 @@ Reads D1 projection, not live queue truth.
 Do not return stack traces or secret-bearing internal details.
 
 Representative codes:
+- `QUEUE_ALREADY_OPEN`
+- `QUEUE_SESSION_ACTIVE` (internal DO response when a current session prevents creating another)
 - `QUEUE_CLOSED`
 - `QUEUE_PAUSED`
 - `INVALID_SERVICE`
@@ -201,6 +231,8 @@ Representative codes:
 - `FORBIDDEN`
 - `ILLEGAL_TRANSITION`
 - `IDEMPOTENCY_CONFLICT`
+- `QUEUE_ID_MISMATCH` (internal DO routing/configuration error)
+- `QUEUE_CONFIG_REQUIRED` (internal response when a new session has no validated D1 snapshot)
 - `REVISION_CONFLICT`
 - `RATE_LIMITED`
 - `SERVICE_UNAVAILABLE`

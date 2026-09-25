@@ -16,9 +16,9 @@
     "format": "biome format biome.json package.json packages workers tsconfig.json --write",
     "format:check": "biome format biome.json package.json packages workers tsconfig.json",
     "lint": "biome lint packages workers",
-    "test": "npm run build && vitest run packages && npm run test:worker",
+    "test": "npm run build && vitest run packages && npm run test --workspace @queuenow/queue-api",
     "test:dist": "node packages/contracts/test/dist-smoke.mjs && node packages/queue-core/test/dist-smoke.mjs",
-    "test:worker": "npm run test --workspace @queuenow/queue-api",
+    "test:worker": "npm run build --workspace @queuenow/contracts && npm run build --workspace @queuenow/queue-core && npm run test --workspace @queuenow/queue-api",
     "typecheck": "tsc --noEmit && npm run typecheck --workspace @queuenow/queue-api"
   },
   "devDependencies": {

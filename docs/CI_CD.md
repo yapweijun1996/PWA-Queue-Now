@@ -167,7 +167,7 @@ jobs:
       - run: npm run test:dist
 ```
 
-`npm test` builds workspace packages and runs Wrangler's local dry-run build, then runs Node unit tests and Cloudflare runtime tests through `@cloudflare/vitest-plugin`. `npm run typecheck` regenerates Worker binding types with Wrangler before TypeScript checks; `test:dist` smoke-tests the compiled packages through Node. These checks do not deploy to Cloudflare. Implementation should review/pin action versions according to supply-chain policy before production use.
+`npm test` builds workspace packages and runs Wrangler's local dry-run build, then runs Node unit tests and Cloudflare runtime tests through `@cloudflare/vitest-plugin`. `npm run typecheck` builds the contract/core outputs required by the Worker, regenerates Worker binding types with Wrangler, and checks TypeScript; `test:dist` smoke-tests the compiled packages through Node. These checks do not deploy to Cloudflare. Implementation should review/pin action versions according to supply-chain policy before production use.
 
 ## Quality rule
 

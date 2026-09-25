@@ -34,7 +34,7 @@ Legend:
 | ID | Pri | Task | Status |
 |---|---|---|---|
 | QN-020 | P0 | Create SQLite-backed Queue Durable Object | DONE |
-| QN-021 | P0 | Persist queue session/config snapshot | TODO |
+| QN-021 | P0 | Persist queue session/config snapshot | DONE |
 | QN-022 | P0 | Implement atomic anonymous join | TODO |
 | QN-023 | P0 | Implement atomic Call Next | TODO |
 | QN-024 | P0 | Implement Start/Complete/Skip/Recall | TODO |

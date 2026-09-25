@@ -3,7 +3,10 @@ import {
   CancelTicketRequestSchema,
   JoinQueueRequestSchema,
   JoinQueueResponseSchema,
+  OpenQueueSessionRequestSchema,
+  OpenQueueSessionResponseSchema,
   QueueChangedEventSchema,
+  QueueSessionConfigSnapshotSchema,
   QueueRevisionSchema,
   UpdatePresenceRequestSchema,
 } from "../src/index.js";
@@ -94,6 +97,65 @@ describe("customer API schemas", () => {
         commandId: "02f8fcd6-3d5a-4e10-ae40-2f5a90e8a223",
       }).success,
     ).toBe(true);
+  });
+});
+
+describe("merchant queue session schemas", () => {
+  const validConfigSnapshot = {
+    prefix: "A",
+    startSequence: 25,
+    gracePeriodSeconds: 300,
+    serviceCapacity: 2,
+    services: [
+      {
+        serviceId: "service_01",
+        name: " Haircut ",
+        defaultDurationSeconds: 1800,
+      },
+    ],
+  };
+
+  it("validates the public open command and snapshots service settings", () => {
+    expect(
+      OpenQueueSessionRequestSchema.parse({
+        commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2",
+      }),
+    ).toEqual({ commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2" });
+    expect(QueueSessionConfigSnapshotSchema.parse(validConfigSnapshot)).toMatchObject({
+      prefix: "A",
+      startSequence: 25,
+      services: [{ name: "Haircut" }],
+    });
+    expect(
+      OpenQueueSessionResponseSchema.parse({
+        sessionId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2",
+        queueId: "queue_01",
+        status: "OPEN",
+        openedAt: "2026-09-25T13:40:00Z",
+        queueRevision: 0,
+      }).status,
+    ).toBe("OPEN");
+  });
+
+  it("rejects unsafe sequence values, duplicate services, and client-supplied actor scopes", () => {
+    expect(
+      QueueSessionConfigSnapshotSchema.safeParse({
+        ...validConfigSnapshot,
+        startSequence: Number.MAX_SAFE_INTEGER,
+      }).success,
+    ).toBe(false);
+    expect(
+      QueueSessionConfigSnapshotSchema.safeParse({
+        ...validConfigSnapshot,
+        services: [...validConfigSnapshot.services, ...validConfigSnapshot.services],
+      }).success,
+    ).toBe(false);
+    expect(
+      OpenQueueSessionRequestSchema.safeParse({
+        commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2",
+        actorScope: "client-controlled",
+      }).success,
+    ).toBe(false);
   });
 });
 

@@ -8,6 +8,60 @@ export const QueueStatusSchema = z.enum(queueStatuses);
 export const QueueRevisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 export type QueueRevision = z.infer<typeof QueueRevisionSchema>;
 
+const QueueSessionServiceSnapshotSchema = z
+  .object({
+    serviceId: z.string().min(1).max(128),
+    name: z.string().trim().min(1).max(120),
+    defaultDurationSeconds: z.number().int().min(1),
+  })
+  .strict();
+
+export const QueueSessionConfigSnapshotSchema = z
+  .object({
+    prefix: z.string().regex(/^[A-Z0-9]{1,8}$/),
+    startSequence: z
+      .number()
+      .int()
+      .min(1)
+      .max(Number.MAX_SAFE_INTEGER - 1),
+    gracePeriodSeconds: z.number().int().min(0),
+    serviceCapacity: z.number().int().min(1),
+    services: z.array(QueueSessionServiceSnapshotSchema).min(1).max(100),
+  })
+  .strict()
+  .superRefine((snapshot, context) => {
+    const seenServiceIds = new Set<string>();
+    snapshot.services.forEach((service, index) => {
+      if (seenServiceIds.has(service.serviceId)) {
+        context.addIssue({
+          code: "custom",
+          message: "Service IDs must be unique within a queue session snapshot.",
+          path: ["services", index, "serviceId"],
+        });
+      }
+      seenServiceIds.add(service.serviceId);
+    });
+  });
+export type QueueSessionConfigSnapshot = z.infer<typeof QueueSessionConfigSnapshotSchema>;
+
+export const OpenQueueSessionRequestSchema = z
+  .object({
+    commandId: z.string().uuid(),
+  })
+  .strict();
+
+export const OpenQueueSessionResponseSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+    queueId: z.string().min(1).max(128),
+    status: z.literal("OPEN"),
+    openedAt: z.iso.datetime({ offset: false }),
+    queueRevision: z.literal(0),
+  })
+  .strict();
+export type OpenQueueSessionRequest = z.infer<typeof OpenQueueSessionRequestSchema>;
+export type OpenQueueSessionResponse = z.infer<typeof OpenQueueSessionResponseSchema>;
+
 export const QueueChangedEventSchema = z
   .object({
     type: z.literal("queue.changed"),

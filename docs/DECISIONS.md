@@ -1,0 +1,71 @@
+# QueueNow Architecture Decision Log
+
+## ADR-001 — Cloudflare reference runtime
+**Decision:** Workers + SQLite-backed Durable Objects + D1.
+
+**Why:** no self-managed server, real backend, realtime coordination, free-tier-first, open-source reproducibility.
+
+**Consequence:** reference self-hosting is Cloudflare-specific in V1.
+
+## ADR-002 — One Durable Object per live queue
+**Decision:** map each `queue_id` to one authoritative DO.
+
+**Why:** sequence allocation and Call Next are coordination-sensitive.
+
+**Consequence:** live queue state must not be independently mutated in D1/browser.
+
+## ADR-003 — Single web application for V1
+**Decision:** one React/Vite app with customer, merchant and display routes.
+
+**Why:** smaller repo/build/maintenance surface.
+
+**Consequence:** route security must still be enforced server-side; sharing a bundle is not sharing authorization.
+
+## ADR-004 — Lifecycle and presence are separate
+**Decision:** ticket lifecycle does not contain `NEARBY` or `RETURNED`.
+
+**Why:** presence should not corrupt queue-state reasoning.
+
+## ADR-005 — Anonymous customer by default
+**Decision:** no mandatory name, phone, email, account, or GPS.
+
+**Why:** faster QR conversion and privacy minimization.
+
+## ADR-006 — Capability-protected ticket
+**Decision:** public display number is not ticket authentication.
+
+**Why:** `A025` is guessable/public.
+
+## ADR-007 — No offline mutation queue
+**Decision:** authoritative mutations are blocked offline and never Background-Sync replayed.
+
+**Why:** delayed queue commands can corrupt real-world ordering.
+
+## ADR-008 — Hibernation WebSockets
+**Decision:** realtime uses DO Hibernation API rather than polling.
+
+**Why:** better realtime UX and lower free-tier usage.
+
+## ADR-009 — Deterministic prediction
+**Decision:** no AI/LLM in V1 wait estimation.
+
+**Why:** explainability, cost, simplicity, lack of training data.
+
+## ADR-010 — D1 is history/config, not live ordering authority
+**Decision:** terminal/history projection goes to D1; live authority stays in DO.
+
+**Why:** preserve one coordination owner.
+
+## ADR-011 — Apache-2.0 recommended
+**Decision:** use Apache-2.0 unless project owner later selects another OSI license.
+
+**Why:** permissive open-source use with explicit patent terms.
+
+**Action before public release:** add the canonical `LICENSE` file; do not treat this decision document as the license itself.
+
+## ADR-012 — Free-tier-first, not free-forever
+**Decision:** architecture targets S$0 pilot operation within current quotas.
+
+**Why:** provider plans/usage change.
+
+**Consequence:** usage must be measured and documented.

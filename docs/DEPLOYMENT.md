@@ -1,0 +1,109 @@
+# QueueNow V1 Deployment
+
+## Target
+
+Cloudflare-hosted, no self-managed server.
+
+Components:
+- static Vite assets
+- Worker API
+- SQLite-backed Durable Object namespace
+- D1 database
+
+## Environments
+
+Recommended:
+- local
+- preview/staging
+- production
+
+Use separate D1/DO bindings where practical to prevent test traffic touching production.
+
+## Initial Cloudflare setup
+
+1. Create Cloudflare account.
+2. Create D1 database.
+3. Configure Worker project.
+4. Configure SQLite-backed Durable Object migration.
+5. Configure static asset serving.
+6. Add environment bindings.
+7. Create least-privilege API token for GitHub Actions.
+8. Store token in GitHub `production` environment secret.
+9. Deploy.
+10. Run smoke/readback checks.
+
+## URL
+
+V1 can start on a Cloudflare-provided hostname to avoid domain cost.
+
+Custom domain is optional and not required for a zero-cost infrastructure pilot if a suitable free hostname is available.
+
+## Migrations
+
+Rules:
+- committed migration files
+- migration version tracked
+- CI validates migration syntax where possible
+- production migration is a controlled deploy step
+- destructive migration requires explicit plan/backup strategy
+
+## Deployment verification
+
+After production deploy:
+
+### Static
+- index loads
+- manifest loads
+- service worker loads
+- version equals expected SHA/version
+
+### API
+- health endpoint
+- D1 read
+- queue DO route
+- safe test queue create/read if environment supports
+
+### Realtime
+- WebSocket handshake
+- safe test broadcast
+
+### Product
+- public queue page
+- merchant auth page
+- display page
+- no obvious console errors
+
+Record deployed commit SHA.
+
+## Rollback
+
+V1 rollback plan:
+- redeploy last known-good Worker/static version,
+- do not roll back live data schema blindly,
+- forward-fix data migration when rollback would corrupt compatibility.
+
+Schema changes must be backward-compatible where practical around deployment boundaries.
+
+## No-VPS statement
+
+Production does not require:
+- Mac mini online,
+- Linux VPS,
+- Nginx,
+- PM2,
+- Docker host,
+- self-hosted database.
+
+Cloudflare is the server-side runtime.
+
+## Self-hosting
+
+Open-source does not mean V1 must support every hosting provider immediately.
+
+V1 reference deployment is Cloudflare.
+
+A later self-hosted adapter may target:
+- Node runtime,
+- PostgreSQL/SQLite,
+- WebSocket server,
+but it is explicitly post-V1 unless a contributor owns that work.

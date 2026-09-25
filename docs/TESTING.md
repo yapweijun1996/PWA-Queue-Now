@@ -17,6 +17,7 @@ Fast and exhaustive:
 - DO SQLite persistence
 - D1 projection
 - auth/capability enforcement
+- Cloudflare Web Crypto join-recovery envelope round-trip, wrong-key rejection, tamper rejection, and context binding
 - WebSocket event contracts
 
 ### Concurrency

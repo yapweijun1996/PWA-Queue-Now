@@ -96,4 +96,4 @@
 
 **Why:** a committed join must be safely recoverable if its HTTP response is lost, without turning the idempotency identifier into a bearer credential or storing the raw ticket capability.
 
-**Consequence:** the client must persist the pending ID and recovery secret before sending, then replace them with the ticket/capability only after safely storing the response. Wrong proof returns no ticket data; altered intent conflicts. Retries are explicit and online-only, never background-replayed. The cryptographic envelope and atomic retry behavior still require Cloudflare runtime implementation and tests.
+**Consequence:** the client must persist the pending ID and recovery secret before sending, then replace them with the ticket/capability only after safely storing the response. Wrong proof returns no ticket data; altered intent conflicts. Retries are explicit and online-only, never background-replayed. The HKDF/AES-GCM envelope helper now passes Cloudflare runtime tests; atomic DO receipt handling, capability-hash verification, and replay behavior remain unimplemented.

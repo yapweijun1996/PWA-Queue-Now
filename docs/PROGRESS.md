@@ -53,19 +53,19 @@ Reason: product/engineering design is substantially defined; queue-core contract
 - Return-window estimates use a five-valid-sample median threshold, concurrent-lane workload simulation, and an explicit server-supplied buffer; the helper is advisory and pure.
 - The public Worker exposes only `/health`; the SQLite DO has schema v2 and an internal queue-open command, but the public Worker does not route it.
 - Session open atomically persists a validated server-supplied config snapshot and an exact command receipt; actor scope is hashed and receipts have a 24-hour retry horizon. The public Worker has no D1 lookup or merchant authorization yet, so the internal command must remain unforwarded.
-- Join recovery contract selected in ADR-016: `joinRequestId` is only a selector; a separate 32-byte secret proves replay of a DO-encrypted capability envelope. Shared request schema and docs are updated; transactional crypto/runtime behavior remains unimplemented.
+- Join recovery contract selected in ADR-016: `joinRequestId` is only a selector; a separate 32-byte secret proves replay of a DO-encrypted capability envelope. The shared request schema and HKDF/AES-GCM envelope helper are implemented; the Cloudflare runtime suite verifies round-trip, wrong-key, tampering, and context binding. Atomic receipt persistence, capability-hash verification, and replay behavior remain unimplemented.
 - `packages/contracts` owns shared enums/schemas; queue-core imports only its dependency-free domain subpath.
 - Initial business niche: small barber/salon/beauty walk-in operations.
 - Free-tier-first, not “guaranteed free forever.”
 
 ## Latest local verification
 
-On 2026-09-25, `npm ci`, format/lint checks, strict TypeScript typechecks (including generated Wrangler types), the Wrangler dry-run build, 586 Node Vitest cases, 4 Cloudflare-runtime Vitest cases, and both compiled-package smoke tests passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
+On 2026-09-25, `npm ci`, format/lint checks, strict TypeScript typechecks (including generated Wrangler types), the Wrangler dry-run build, 586 Node Vitest cases, 8 Cloudflare-runtime Vitest cases (including the join-recovery Web Crypto helper), and both compiled-package smoke tests passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
 
 ## Next implementation gate
 
 Keep the DO session command internal until the API can authenticate merchant calls and retrieve authoritative D1 configuration; then continue the persisted queue-flow slice using the reviewed join-recovery contract:
-- implement join receipt encryption/decryption and exact retries atomically with ticket, sequence, revision, and event writes,
+- wire the tested envelope helper into an atomic DO join receipt with ticket-hash verification, exact retry, and no extra sequence/revision/event,
 - implement merchant auth/authorization and D1 configuration before forwarding the session-open command,
 - implement transactional DO handlers for joins and staff/customer commands with receipts, revisions, and persisted events,
 - wire the pure estimator to bounded history samples and select the runtime buffer policy,

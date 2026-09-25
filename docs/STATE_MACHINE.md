@@ -43,6 +43,8 @@ RETURNED
 
 Presence does not grant service priority unless an explicit queue policy says so.
 
+A customer repeating the current presence assignment is a no-op; the runtime must not increment the revision or emit a duplicate logical event for that no-op.
+
 ---
 
 ## Lifecycle transitions
@@ -206,12 +208,9 @@ Clients use revision to:
 
 ## Test obligation
 
-For every transition:
-- legal transition test,
-- illegal transition test,
-- idempotent retry test,
-- audit event assertion,
-- revision assertion.
+For the pure queue-core layer, test every lifecycle/presence state and actor combination for legal transitions, invalid transitions, and actor rejection. Reapplying the current presence is a no-op.
+
+For each runtime mutation built on these transitions, also verify idempotent retry behavior, audit-event behavior, and revision changes. Those assertions belong with command receipts/events and are not proven by pure transition tests.
 
 Concurrency-specific:
 - simultaneous join IDs allocate unique sequences,

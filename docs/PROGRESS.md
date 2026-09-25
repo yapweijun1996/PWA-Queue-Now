@@ -4,9 +4,9 @@ Updated: 2026-09-25
 
 ## Current phase
 
-**Specification baseline**
+**M1 — Deterministic Queue Core (in progress)**
 
-No implementation repository has been created by this documentation pack.
+The npm workspace, strict TypeScript/quality baseline, and GitHub Actions CI workflow are initialized. The first pure queue-core lifecycle and presence rules are implemented and locally verified; runtime, web app, and Cloudflare resources are not implemented.
 
 ## Progress by area
 
@@ -21,15 +21,15 @@ No implementation repository has been created by this documentation pack.
 | PWA rules | 100% | PWA_STANDARD |
 | CI/CD plan | 100% | CI_CD |
 | Test strategy | 100% | TESTING |
-| Implementation | 0% | Not started |
+| Implementation | 1% | Workspace/CI foundation and pure lifecycle/presence core; no runtime or user flows yet |
 | Production deployment | 0% | Not started |
 | Pilot evidence | 0% | Not started |
 
 ## Overall delivery estimate
 
-**20%**
+**21%**
 
-Reason: product/engineering design is substantially defined, but working software and real-world evidence are still absent. Documentation completion must not be reported as product completion.
+Reason: product/engineering design is substantially defined and one small queue-core slice is now tested. Runtime, customer/merchant/display flows, deployment, and real-world evidence remain absent; documentation or unit tests alone are not product completion.
 
 ## Current verified decisions
 
@@ -45,16 +45,21 @@ Reason: product/engineering design is substantially defined, but working softwar
 - Offline authoritative mutation is forbidden.
 - V1 notification depends on the open live page; SMS/WhatsApp are out of scope.
 - V1 estimator is deterministic, not AI.
+- Re-setting a customer's current presence is a no-op and must not create a second revision/event.
 - Initial business niche: small barber/salon/beauty walk-in operations.
 - Free-tier-first, not “guaranteed free forever.”
 
+## Latest local verification
+
+On 2026-09-25, `npm ci`, lint, format check, strict TypeScript typecheck, all 529 Vitest cases, the queue-core build, and a Node smoke test of the built package passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
+
 ## Next implementation gate
 
-Start M1 only after:
-1. repository is initialized,
-2. package/workspace shape is accepted,
-3. CI baseline exists,
-4. queue-core tests run before backend/UI work.
+Finish the remaining M1 contracts and tests before backend/UI work:
+- session sequence allocation,
+- join and command idempotency,
+- queue revision/event envelope,
+- deterministic return-window estimator.
 
 ## Blockers
 

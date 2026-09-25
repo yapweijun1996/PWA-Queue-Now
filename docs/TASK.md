@@ -10,8 +10,8 @@ Legend:
 
 | ID | Pri | Task | Status |
 |---|---|---|---|
-| QN-001 | P0 | Initialize public monorepo/workspaces | TODO |
-| QN-002 | P0 | Add strict TypeScript, lint, format, unit-test baseline | TODO |
+| QN-001 | P0 | Initialize public monorepo/workspaces | DONE |
+| QN-002 | P0 | Add strict TypeScript, lint, format, unit-test baseline | DONE |
 | QN-003 | P0 | Define shared API/event schemas with runtime validation | TODO |
 | QN-004 | P1 | Add local Wrangler dev config and environment template | TODO |
 | QN-005 | P1 | Add version/build metadata contract | TODO |
@@ -20,14 +20,14 @@ Legend:
 
 | ID | Pri | Task | Status |
 |---|---|---|---|
-| QN-010 | P0 | Implement lifecycle transition table | TODO |
-| QN-011 | P0 | Implement independent presence model | TODO |
+| QN-010 | P0 | Implement lifecycle transition table | DONE |
+| QN-011 | P0 | Implement independent presence model | DONE |
 | QN-012 | P0 | Implement queue-session sequence allocator contract | TODO |
 | QN-013 | P0 | Implement join idempotency semantics | TODO |
 | QN-014 | P0 | Implement command idempotency semantics | TODO |
 | QN-015 | P0 | Implement queue revision/event envelope | TODO |
 | QN-016 | P1 | Implement deterministic return-window estimator | TODO |
-| QN-017 | P0 | Add exhaustive legal/illegal transition tests | TODO |
+| QN-017 | P0 | Add exhaustive legal/illegal transition tests | DONE |
 
 ## Durable Object Runtime
 
@@ -112,8 +112,8 @@ Legend:
 
 | ID | Pri | Task | Status |
 |---|---|---|---|
-| QN-080 | P0 | Add PR CI: lint/typecheck/unit/build | TODO |
-| QN-081 | P0 | Add state-machine + concurrency CI | TODO |
+| QN-080 | P0 | Add PR CI: lint/typecheck/unit/build | DONE |
+| QN-081 | P0 | Add state-machine + concurrency CI | DOING |
 | QN-082 | P1 | Add Playwright mobile E2E | TODO |
 | QN-083 | P1 | Add CodeQL + dependency review | TODO |
 | QN-084 | P1 | Add Dependabot | TODO |

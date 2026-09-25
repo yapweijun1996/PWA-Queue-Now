@@ -13,6 +13,7 @@ Exit:
 - task backlog created.
 
 ## M1 — Deterministic Queue Core
+Status: IN PROGRESS
 Depends on: M0
 
 Build first because UI must not invent business rules.

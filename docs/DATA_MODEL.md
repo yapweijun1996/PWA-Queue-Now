@@ -149,7 +149,11 @@ config_snapshot_json
 queue_revision
 ```
 
-Only one active session per DO.
+Only one active session per DO. At session creation, initialize `next_sequence` from the queue definition's `start_sequence`.
+
+`next_sequence` is the next unused positive safe integer for that session. The pure `calculateNextSequenceAllocation` helper returns that value and its successor; it rejects invalid or overflowing counters. Display numbers concatenate the session prefix with the decimal sequence padded to a minimum of three digits (for example `A025` and `A1000`). Display numbers are presentation data, not credentials.
+
+The helper does not reserve a number or provide concurrency safety by itself. The queue DO must atomically insert the ticket and advance `next_sequence` before returning success. The unique `(session_id, sequence_number)` constraint remains the persistence-level collision guard.
 
 ### tickets
 

@@ -25,7 +25,7 @@ export type LifecycleCommand =
   | "SKIP"
   | "COMPLETE";
 
-export type QueueDomainErrorCode = "INVALID_TRANSITION" | "FORBIDDEN_ACTOR";
+export type QueueDomainErrorCode = "INVALID_TRANSITION" | "FORBIDDEN_ACTOR" | "INVALID_SEQUENCE";
 
 export class QueueDomainError extends Error {
   constructor(

@@ -1,3 +1,8 @@
+export {
+  calculateNextSequenceAllocation,
+  formatDisplayNumber,
+  type SequenceAllocation,
+} from "./sequence.js";
 export { transitionLifecycle, transitionPresence } from "./transitions.js";
 export {
   lifecycleStatuses,

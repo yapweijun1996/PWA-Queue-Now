@@ -11,7 +11,8 @@ export type QueueDomainErrorCode =
   | "INVALID_TRANSITION"
   | "FORBIDDEN_ACTOR"
   | "INVALID_SEQUENCE"
-  | "INVALID_REVISION";
+  | "INVALID_REVISION"
+  | "IDEMPOTENCY_CONFLICT";
 
 export class QueueDomainError extends Error {
   constructor(

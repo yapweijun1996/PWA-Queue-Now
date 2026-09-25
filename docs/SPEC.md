@@ -173,7 +173,7 @@ Server records:
 - before/after revision,
 - reason for rejection when safe.
 
-Repeated `command_id` returns the original result.
+An exact retry with the same `command_id`, actor scope, command type, and request fingerprint returns the original safe result. Reusing an ID for different intent fails with `IDEMPOTENCY_CONFLICT`. The DO must persist the command result atomically with any accepted state/revision/event changes.
 
 ## 8. Call Next
 

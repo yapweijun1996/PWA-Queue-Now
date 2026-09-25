@@ -196,7 +196,9 @@ created_at
 expires_at
 ```
 
-Used for safe retry/idempotency.
+`command_id` is unique among retained receipts for the queue. `actor_scope` is a stable authenticated principal/ticket scope, never a session token or capability. `request_fingerprint` is a digest of the validated command intent (including target and parameters, excluding `command_id` and authentication material). `result_json` contains only the safe accepted or rejected response.
+
+Authenticate and authorize each retry before looking up its receipt. An exact match on command ID, actor scope, command type, and fingerprint replays the stored result without another mutation, revision, or event. Reuse of an ID with any different identity is `IDEMPOTENCY_CONFLICT`. With no receipt, the DO must apply the command and persist its receipt in the same transaction as state, revision, and event. The receipt TTL must be no shorter than the supported retry horizon; choose and document that duration before runtime rollout. After expiry, the idempotency guarantee ends. The pure queue-core decision helper does not provide persistence or concurrency guarantees.
 
 ### join_receipts
 

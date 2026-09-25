@@ -124,10 +124,11 @@ PATCH  /api/merchant/services/:serviceId
 ## Merchant operations
 
 Every command:
-- authenticated,
-- authorized for queue,
-- `commandId`,
+- authenticated and authorized for the queue before receipt lookup,
+- has a `commandId` UUID reused only for retries of the exact same intent,
 - validated against state machine.
+
+An exact retry returns its original safe result without another mutation. Reusing a command ID for a different actor scope, command type, target, or parameters returns `IDEMPOTENCY_CONFLICT`.
 
 ```text
 POST /api/merchant/queues/:queueId/open

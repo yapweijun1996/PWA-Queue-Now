@@ -1,5 +1,11 @@
 export { advanceQueueRevision } from "./revision.js";
 export {
+  resolveCommandReceipt,
+  type CommandReceipt,
+  type CommandReceiptResolution,
+  type CommandRequestIdentity,
+} from "./idempotency.js";
+export {
   calculateNextSequenceAllocation,
   formatDisplayNumber,
   type SequenceAllocation,

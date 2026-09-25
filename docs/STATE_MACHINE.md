@@ -212,7 +212,7 @@ Clients use revision to:
 
 For the pure queue-core layer, test every lifecycle/presence state and actor combination for legal transitions, invalid transitions, and actor rejection. Reapplying the current presence is a no-op.
 
-For each runtime mutation built on these transitions, also verify idempotent retry behavior, audit-event behavior, and revision changes. Those assertions belong with command receipts/events and are not proven by pure transition tests.
+For each runtime mutation built on these transitions, also verify idempotent retry behavior, audit-event behavior, and revision changes. `resolveCommandReceipt` tests exact-retry/conflict decisions only; it does not prove storage atomicity. Runtime assertions belong with transactional command receipts/events.
 
 Concurrency-specific:
 - simultaneous join IDs allocate unique sequences,

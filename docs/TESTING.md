@@ -79,7 +79,7 @@ Assert:
 - each accepted command selects a different eligible ticket
 - no ticket called twice from the race
 - revisions are monotonic
-- audit reflects actual accepted order
+- persisted event revisions reflect the accepted order
 
 ### 4. Duplicate command
 

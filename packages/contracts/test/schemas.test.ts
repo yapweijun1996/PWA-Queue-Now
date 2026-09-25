@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  CallNextErrorResponseSchema,
+  CallNextRequestSchema,
+  CallNextResponseSchema,
   CancelTicketRequestSchema,
   JoinQueueRequestSchema,
   JoinQueueResponseSchema,
@@ -197,6 +200,63 @@ describe("merchant queue session schemas", () => {
       OpenQueueSessionRequestSchema.safeParse({
         commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2",
         actorScope: "client-controlled",
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe("merchant Call Next schemas", () => {
+  const validResponse = {
+    sessionId: "e02b6ec4-53be-4d5c-a5f9-9d6cf86125dc",
+    ticket: {
+      ticketId: "ticket_01",
+      displayNumber: "A025",
+      serviceId: "service_01",
+      lifecycleStatus: "CALLED",
+      callCount: 1,
+      calledAt: "2026-09-25T13:40:00Z",
+      graceDeadline: "2026-09-25T13:45:00Z",
+    },
+    queueRevision: 43,
+  };
+
+  it("accepts the minimal command and safe called-ticket result", () => {
+    expect(
+      CallNextRequestSchema.parse({ commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2" }),
+    ).toEqual({ commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2" });
+    expect(CallNextResponseSchema.parse(validResponse)).toEqual(validResponse);
+    expect(
+      CallNextErrorResponseSchema.parse({
+        error: { code: "NO_WAITING_TICKETS", message: "No waiting tickets are available." },
+      }).error.code,
+    ).toBe("NO_WAITING_TICKETS");
+    expect(
+      CallNextErrorResponseSchema.parse({
+        error: {
+          code: "QUEUE_REVISION_EXHAUSTED",
+          message: "The queue cannot advance its revision safely.",
+        },
+      }).error.code,
+    ).toBe("QUEUE_REVISION_EXHAUSTED");
+  });
+
+  it("rejects unknown command fields, non-called tickets, and capability data", () => {
+    expect(
+      CallNextRequestSchema.safeParse({
+        commandId: "f907d0da-7b16-4a47-9f40-2ef7085e30f2",
+        actorScope: "client-controlled",
+      }).success,
+    ).toBe(false);
+    expect(
+      CallNextResponseSchema.safeParse({
+        ...validResponse,
+        ticket: { ...validResponse.ticket, lifecycleStatus: "WAITING" },
+      }).success,
+    ).toBe(false);
+    expect(
+      CallNextResponseSchema.safeParse({
+        ...validResponse,
+        ticket: { ...validResponse.ticket, ticketCapability: "must-not-be-returned" },
       }).success,
     ).toBe(false);
   });

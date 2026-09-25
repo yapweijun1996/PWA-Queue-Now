@@ -170,7 +170,9 @@ candidate = waiting tickets
   .first()
 ```
 
-Selection + transition to CALLED must occur atomically inside the authoritative queue DO.
+Selection + transition to CALLED must occur atomically inside the authoritative queue DO. The current session may be OPEN or PAUSED; pausing stops new joins but does not block operating existing tickets. CLOSED sessions cannot call tickets.
+
+On success, the DO sets `called_at`, `grace_deadline`, and `call_count`, advances the ticket and session revision, persists `TICKET_CALLED`, and stores the exact command result in one transaction. An empty candidate set returns and stores `NO_WAITING_TICKETS`, so retrying that command ID cannot later call a ticket that joined afterward. A duplicate exact command replays without another revision or event.
 
 ---
 

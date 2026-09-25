@@ -69,6 +69,55 @@ export const OpenQueueSessionResponseSchema = z
 export type OpenQueueSessionRequest = z.infer<typeof OpenQueueSessionRequestSchema>;
 export type OpenQueueSessionResponse = z.infer<typeof OpenQueueSessionResponseSchema>;
 
+export const CallNextRequestSchema = z
+  .object({
+    commandId: z.string().uuid(),
+  })
+  .strict();
+
+export const CallNextResponseSchema = z
+  .object({
+    sessionId: z.string().uuid(),
+    ticket: z
+      .object({
+        ticketId: z.string().min(1).max(128),
+        displayNumber: z.string().min(1).max(24),
+        serviceId: z.string().min(1).max(128),
+        lifecycleStatus: z.literal("CALLED"),
+        callCount: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+        calledAt: z.iso.datetime({ offset: false }),
+        graceDeadline: z.iso.datetime({ offset: false }),
+      })
+      .strict(),
+    queueRevision: QueueRevisionSchema,
+  })
+  .strict();
+
+export const CallNextErrorResponseSchema = z
+  .object({
+    error: z
+      .object({
+        code: z.enum([
+          "IDEMPOTENCY_CONFLICT",
+          "INTERNAL_ERROR",
+          "INVALID_REQUEST",
+          "NO_WAITING_TICKETS",
+          "QUEUE_CALL_COUNT_EXHAUSTED",
+          "QUEUE_CLOSED",
+          "QUEUE_CONFIG_INVALID",
+          "QUEUE_ID_MISMATCH",
+          "QUEUE_REVISION_EXHAUSTED",
+        ]),
+        message: z.string(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type CallNextRequest = z.infer<typeof CallNextRequestSchema>;
+export type CallNextResponse = z.infer<typeof CallNextResponseSchema>;
+export type CallNextErrorResponse = z.infer<typeof CallNextErrorResponseSchema>;
+
 export const QueueChangedEventSchema = z
   .object({
     type: z.literal("queue.changed"),

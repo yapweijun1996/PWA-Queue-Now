@@ -214,6 +214,8 @@ Authenticate and authorize each retry before looking up its receipt. An exact ma
 
 Opening a queue persists its session snapshot and the `OPEN_QUEUE_SESSION` receipt in one transaction. The internal command's request fingerprint covers the target `queue_id`; configuration is server-supplied from D1 and is snapshotted only on first acceptance. The client-visible open response is immutable and starts at revision 0, so an exact retry replays it even if the queue is later paused or closed. If no receipt exists, the internal Worker must supply a valid snapshot; at most 100 active services are currently accepted per snapshot.
 
+`CALL_NEXT` atomically persists the selected ticket's `CALLED` state, call time/deadline/count, ticket and session revision, `TICKET_CALLED` event, and receipt. Its success result includes `session_id` so clients can interpret the session-scoped revision. It also stores the safe `NO_WAITING_TICKETS` or `QUEUE_CLOSED` rejection result. This makes exact retry behavior stable even when new tickets arrive after an empty-queue rejection.
+
 ### join_receipts
 
 ```text
@@ -245,7 +247,7 @@ occurred_at
 safe_payload_json
 ```
 
-`queue_revision` is unique within a session, not across the DO lifetime, because a reopened session starts again at revision 0. Enforce `UNIQUE(session_id, queue_revision)`. Retain enough recent events for audit/projection as required. These persisted records are not WebSocket payloads: realtime sends only the strict `queue.changed` invalidation, and clients fetch authorized snapshots. Long-term retention can be projected/compacted.
+`queue_revision` is unique within a session, not across the DO lifetime, because a reopened session starts again at revision 0. Enforce `UNIQUE(session_id, queue_revision)`. For merchant events, `actor_id` is the canonical authenticated principal ID derived by the Worker, never a session token or email; anonymous customer events may leave it null. Retain enough recent events for audit/projection as required. These persisted records are not WebSocket payloads: realtime sends only the strict `queue.changed` invalidation, and clients fetch authorized snapshots. Long-term retention can be projected/compacted.
 
 ### projections_pending
 

@@ -52,6 +52,15 @@ describe("Queue API Worker runtime", () => {
       createExecutionContext(),
     );
     expect(internalJoinResponse.status).toBe(404);
+    const internalCallNextResponse = await exports.default.fetch(
+      new Request("https://queuenow.test/_internal/queue/call-next", {
+        method: "POST",
+        body: "{}",
+      }),
+      env,
+      createExecutionContext(),
+    );
+    expect(internalCallNextResponse.status).toBe(404);
   });
 
   it("runs schema migrations once through the Durable Object binding", async () => {

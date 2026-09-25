@@ -36,12 +36,12 @@ Legend:
 | QN-020 | P0 | Create SQLite-backed Queue Durable Object | DONE |
 | QN-021 | P0 | Persist queue session/config snapshot | DONE |
 | QN-022 | P0 | Implement atomic anonymous join | DONE |
-| QN-023 | P0 | Implement atomic Call Next | TODO |
+| QN-023 | P0 | Implement atomic Call Next | DONE |
 | QN-024 | P0 | Implement Start/Complete/Skip/Recall | TODO |
 | QN-025 | P0 | Implement customer cancel/presence mutation | TODO |
 | QN-026 | P0 | Prove restart/hibernation persistence | TODO |
 | QN-027 | P0 | Add 50+ concurrent join collision test | DONE |
-| QN-028 | P0 | Add concurrent Call Next double-selection test | TODO |
+| QN-028 | P0 | Add concurrent Call Next double-selection test | DONE |
 | QN-029 | P1 | Add D1 terminal-history projection + retry marker | TODO |
 
 ## Customer

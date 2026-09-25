@@ -21,7 +21,7 @@
 - [ ] 50 concurrent unique joins create 50 unique sequence numbers.
 - [ ] Repeated identical join ID with the correct recovery secret returns the same ticket without consuming another number.
 - [ ] Join ID alone cannot recover a ticket capability; wrong recovery proof fails without mutation or ticket data.
-- [ ] Concurrent Call Next cannot select same ticket twice.
+- [x] Concurrent Call Next cannot select the same ticket twice in the internal Durable Object runtime test.
 - [ ] Duplicate command ID is not executed twice.
 - [ ] Illegal lifecycle transitions fail without mutation.
 - [ ] Queue revision is monotonic.

@@ -189,6 +189,42 @@ Response:
 
 This describes the target public contract; the current Worker scaffold does not expose this route until merchant authentication/authorization and D1 configuration are implemented.
 
+### Call Next command
+
+```text
+POST /api/merchant/queues/:queueId/call-next
+```
+
+Request:
+
+```json
+{
+  "commandId": "uuid"
+}
+```
+
+A successful response contains only the selected ticket's safe operational fields and the committed queue revision:
+
+```json
+{
+  "sessionId": "server-generated-session-id",
+  "ticket": {
+    "ticketId": "server-generated-id",
+    "displayNumber": "A025",
+    "serviceId": "service-id",
+    "lifecycleStatus": "CALLED",
+    "callCount": 1,
+    "calledAt": "2026-09-25T13:40:00Z",
+    "graceDeadline": "2026-09-25T13:45:00Z"
+  },
+  "queueRevision": 43
+}
+```
+
+When no ticket is waiting, return `409 NO_WAITING_TICKETS`; a closed queue returns `409 QUEUE_CLOSED`. These outcomes are receipt-backed: exact retries return the original result, and a rejected empty-queue command cannot call a ticket that joined later. Reusing an ID with different actor scope or command intent returns `IDEMPOTENCY_CONFLICT`. The internal DO applies strict FIFO by sequence and commits the ticket transition, grace fields, revision, `TICKET_CALLED` event, and receipt atomically. Existing tickets remain operable while the queue is PAUSED.
+
+The DO handler is implemented only on its internal path. The public Worker still does not expose Call Next until merchant authentication/authorization and queue routing exist.
+
 ## Snapshot
 
 ```text
@@ -229,11 +265,14 @@ Do not return stack traces or secret-bearing internal details.
 Representative codes:
 - `QUEUE_ALREADY_OPEN`
 - `QUEUE_SESSION_ACTIVE` (internal DO response when a current session prevents creating another)
+- `NO_WAITING_TICKETS` (Call Next had no eligible ticket; exact retries replay this result)
 - `QUEUE_CLOSED`
 - `QUEUE_PAUSED`
 - `QUEUE_STATE_CHANGED`
 - `QUEUE_SEQUENCE_EXHAUSTED`
 - `QUEUE_REVISION_EXHAUSTED`
+- `QUEUE_CALL_COUNT_EXHAUSTED`
+- `QUEUE_CONFIG_INVALID`
 - `INVALID_SERVICE`
 - `TICKET_NOT_FOUND`
 - `CAPABILITY_INVALID`

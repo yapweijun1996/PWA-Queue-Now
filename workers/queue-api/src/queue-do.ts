@@ -1,6 +1,10 @@
 import {
+  CallNextErrorResponseSchema,
+  CallNextRequestSchema,
+  CallNextResponseSchema,
   JoinQueueRequestSchema,
   JoinQueueResponseSchema,
+  LifecycleStatusSchema,
   OpenQueueSessionRequestSchema,
   OpenQueueSessionResponseSchema,
   QueueSessionConfigSnapshotSchema,
@@ -14,7 +18,7 @@ import {
   formatDisplayNumber,
   QueueDomainError,
   resolveCommandReceipt,
-  type CommandReceipt,
+  transitionLifecycle,
 } from "@queuenow/queue-core";
 import { DurableObject } from "cloudflare:workers";
 import { z } from "zod";
@@ -27,7 +31,10 @@ import {
 
 const CURRENT_SCHEMA_VERSION = 3;
 const OPEN_SESSION_COMMAND_TYPE = "OPEN_QUEUE_SESSION";
+const CALL_NEXT_COMMAND_TYPE = "CALL_NEXT";
 const COMMAND_RECEIPT_TTL_MS = 24 * 60 * 60 * 1000;
+// Keep generated deadlines within the four-digit year range accepted by the shared ISO schema.
+const MAX_CONTRACT_DATETIME_MILLISECONDS = Date.parse("9999-12-31T23:59:59.999Z");
 
 const InternalOpenQueueSessionIdentitySchema = OpenQueueSessionRequestSchema.extend({
   actorScope: z.string().min(1).max(128),
@@ -39,6 +46,11 @@ const InternalOpenQueueSessionCommandSchema = InternalOpenQueueSessionIdentitySc
 }).strict();
 
 const InternalJoinQueueCommandSchema = JoinQueueRequestSchema.extend({
+  queueId: z.string().min(1).max(128),
+}).strict();
+
+const InternalCallNextCommandSchema = CallNextRequestSchema.extend({
+  actorScope: z.string().min(1).max(128),
   queueId: z.string().min(1).max(128),
 }).strict();
 
@@ -62,7 +74,14 @@ const StoredOpenSessionResultSchema = z
   })
   .strict();
 
+const StoredCallNextResultSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal(200), body: CallNextResponseSchema }).strict(),
+  z.object({ status: z.literal(409), body: CallNextErrorResponseSchema }).strict(),
+]);
+
 type StoredOpenSessionResult = z.infer<typeof StoredOpenSessionResultSchema>;
+type StoredCallNextResult = z.infer<typeof StoredCallNextResultSchema>;
+type StoredCommandResult = StoredOpenSessionResult | StoredCallNextResult;
 type StoredJoinResult = z.infer<typeof StoredJoinResultSchema>;
 type InternalJoinQueueCommand = z.infer<typeof InternalJoinQueueCommandSchema>;
 type InternalQueueApiErrorCode =
@@ -71,7 +90,9 @@ type InternalQueueApiErrorCode =
   | "INVALID_REQUEST"
   | "INVALID_SERVICE"
   | "JOIN_RECOVERY_INVALID"
+  | "QUEUE_CALL_COUNT_EXHAUSTED"
   | "QUEUE_CLOSED"
+  | "QUEUE_CONFIG_INVALID"
   | "QUEUE_CONFIG_REQUIRED"
   | "QUEUE_ID_MISMATCH"
   | "QUEUE_PAUSED"
@@ -83,7 +104,15 @@ type OpenSessionOutcome =
   | { readonly kind: "idempotency-conflict" }
   | { readonly kind: "queue-id-mismatch" }
   | { readonly kind: "queue-config-required" }
-  | { readonly kind: "invalid-request" };
+  | { readonly kind: "invalid-request" }
+  | { readonly kind: "invalid-receipt" };
+type CallNextOutcome =
+  | { readonly kind: "result"; readonly result: StoredCallNextResult }
+  | { readonly kind: "idempotency-conflict" }
+  | { readonly kind: "queue-id-mismatch" }
+  | { readonly kind: "invalid-receipt" }
+  | { readonly kind: "queue-config-invalid" }
+  | { readonly kind: "call-count-exhausted" };
 type JoinQueueOutcome =
   | { readonly kind: "accepted"; readonly response: JoinQueueResponse }
   | { readonly kind: "receipt-exists" }
@@ -141,6 +170,11 @@ export class QueueDurableObject extends DurableObject<Env> {
       return this.openQueueSession(request);
     }
 
+    // The public Worker must authenticate and authorize before forwarding this internal command.
+    if (request.method === "POST" && url.pathname === "/_internal/queue/call-next") {
+      return this.callNext(request);
+    }
+
     return jsonResponse({ error: "Not found" }, 404);
   }
 
@@ -184,30 +218,39 @@ export class QueueDurableObject extends DurableObject<Env> {
         .toArray()[0];
 
       if (storedRow) {
-        const storedReceipt: CommandReceipt<StoredOpenSessionResult> = {
-          commandId: storedRow.command_id,
-          actorScope: storedRow.actor_scope_hash,
-          commandType: storedRow.command_type,
-          requestFingerprint: storedRow.request_fingerprint,
-          result: StoredOpenSessionResultSchema.parse(JSON.parse(storedRow.result_json)),
-        };
-
+        let resolution: ReturnType<typeof resolveCommandReceipt<null>>;
         try {
-          const resolution = resolveCommandReceipt(storedReceipt, {
-            commandId: identity.data.commandId,
-            actorScope: actorScopeHash,
-            commandType: OPEN_SESSION_COMMAND_TYPE,
-            requestFingerprint,
-          });
-          if (resolution.kind === "execute") {
-            throw new Error("An existing command receipt cannot resolve to execute.");
-          }
-          return { kind: "result", result: resolution.result };
+          resolution = resolveCommandReceipt(
+            {
+              commandId: storedRow.command_id,
+              actorScope: storedRow.actor_scope_hash,
+              commandType: storedRow.command_type,
+              requestFingerprint: storedRow.request_fingerprint,
+              result: null,
+            },
+            {
+              commandId: identity.data.commandId,
+              actorScope: actorScopeHash,
+              commandType: OPEN_SESSION_COMMAND_TYPE,
+              requestFingerprint,
+            },
+          );
         } catch (error) {
           if (error instanceof QueueDomainError && error.code === "IDEMPOTENCY_CONFLICT") {
             return { kind: "idempotency-conflict" };
           }
           throw error;
+        }
+        if (resolution.kind !== "replay") {
+          return { kind: "invalid-receipt" };
+        }
+        try {
+          return {
+            kind: "result",
+            result: StoredOpenSessionResultSchema.parse(JSON.parse(storedRow.result_json)),
+          };
+        } catch {
+          return { kind: "invalid-receipt" };
         }
       }
 
@@ -238,6 +281,7 @@ export class QueueDurableObject extends DurableObject<Env> {
           sql,
           identity.data.commandId,
           actorScopeHash,
+          OPEN_SESSION_COMMAND_TYPE,
           requestFingerprint,
           result,
           currentSession.queue_revision,
@@ -284,6 +328,7 @@ export class QueueDurableObject extends DurableObject<Env> {
         sql,
         command.commandId,
         actorScopeHash,
+        OPEN_SESSION_COMMAND_TYPE,
         requestFingerprint,
         result,
         0,
@@ -317,6 +362,277 @@ export class QueueDurableObject extends DurableObject<Env> {
     }
     if (outcome.kind === "invalid-request") {
       return apiErrorResponse("INVALID_REQUEST", "The queue session command is invalid.", 400);
+    }
+    if (outcome.kind === "invalid-receipt") {
+      return apiErrorResponse("INTERNAL_ERROR", "The stored command result is unavailable.", 500);
+    }
+
+    return jsonResponse(outcome.result.body, outcome.result.status);
+  }
+
+  private async callNext(request: Request): Promise<Response> {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiErrorResponse("INVALID_REQUEST", "The request body must be valid JSON.", 400);
+    }
+
+    const parsedCommand = InternalCallNextCommandSchema.safeParse(body);
+    if (!parsedCommand.success) {
+      return apiErrorResponse("INVALID_REQUEST", "The Call Next command is invalid.", 400);
+    }
+    const command = parsedCommand.data;
+    const [actorScopeHash, requestFingerprint] = await Promise.all([
+      sha256Hex(command.actorScope),
+      sha256Hex(JSON.stringify({ queueId: command.queueId })),
+    ]);
+    const acceptedAt = new Date();
+    const acceptedAtIso = acceptedAt.toISOString();
+    const expiresAt = new Date(acceptedAt.getTime() + COMMAND_RECEIPT_TTL_MS).toISOString();
+    const sql = this.ctx.storage.sql;
+    const storeResult = (result: StoredCallNextResult, resultRevision: number): CallNextOutcome => {
+      insertCommandReceipt(
+        sql,
+        command.commandId,
+        actorScopeHash,
+        CALL_NEXT_COMMAND_TYPE,
+        requestFingerprint,
+        result,
+        resultRevision,
+        acceptedAtIso,
+        expiresAt,
+      );
+      return { kind: "result", result };
+    };
+
+    let outcome: CallNextOutcome;
+    try {
+      outcome = this.ctx.storage.transactionSync(() => {
+        sql.exec("DELETE FROM command_receipts WHERE expires_at <= ?", acceptedAtIso);
+
+        const storedRow = sql
+          .exec<{
+            command_id: string;
+            actor_scope_hash: string;
+            command_type: string;
+            request_fingerprint: string;
+            result_json: string;
+          }>(
+            `SELECT command_id, actor_scope_hash, command_type, request_fingerprint, result_json
+             FROM command_receipts WHERE command_id = ?`,
+            command.commandId,
+          )
+          .toArray()[0];
+        if (storedRow) {
+          let isExactRetry = false;
+          try {
+            const resolution = resolveCommandReceipt(
+              {
+                commandId: storedRow.command_id,
+                actorScope: storedRow.actor_scope_hash,
+                commandType: storedRow.command_type,
+                requestFingerprint: storedRow.request_fingerprint,
+                result: null,
+              },
+              {
+                commandId: command.commandId,
+                actorScope: actorScopeHash,
+                commandType: CALL_NEXT_COMMAND_TYPE,
+                requestFingerprint,
+              },
+            );
+            isExactRetry = resolution.kind === "replay";
+          } catch (error) {
+            if (error instanceof QueueDomainError && error.code === "IDEMPOTENCY_CONFLICT") {
+              return { kind: "idempotency-conflict" };
+            }
+            throw error;
+          }
+          if (!isExactRetry) {
+            return { kind: "invalid-receipt" };
+          }
+          try {
+            return {
+              kind: "result",
+              result: StoredCallNextResultSchema.parse(JSON.parse(storedRow.result_json)),
+            };
+          } catch {
+            return { kind: "invalid-receipt" };
+          }
+        }
+
+        const existingQueue = sql
+          .exec<{ queue_id: string }>("SELECT queue_id FROM queue_session LIMIT 1")
+          .toArray()[0];
+        if (existingQueue && existingQueue.queue_id !== command.queueId) {
+          return { kind: "queue-id-mismatch" };
+        }
+
+        const currentSession = sql
+          .exec<{
+            session_id: string;
+            queue_id: string;
+            status: string;
+            grace_period_seconds: number;
+            queue_revision: number;
+          }>(
+            `SELECT session_id, queue_id, status, grace_period_seconds, queue_revision
+             FROM queue_session WHERE is_current = 1`,
+          )
+          .toArray()[0];
+        if (!currentSession) {
+          const lastRevision = sql
+            .exec<{ queue_revision: number }>(
+              "SELECT queue_revision FROM queue_session ORDER BY rowid DESC LIMIT 1",
+            )
+            .toArray()[0]?.queue_revision;
+          const result = createCallNextErrorResult("QUEUE_CLOSED", "The queue is not open.");
+          return storeResult(result, lastRevision ?? 0);
+        }
+        if (currentSession.queue_id !== command.queueId) {
+          return { kind: "queue-id-mismatch" };
+        }
+        if (currentSession.status !== "OPEN" && currentSession.status !== "PAUSED") {
+          const result = createCallNextErrorResult("QUEUE_CLOSED", "The queue is not open.");
+          return storeResult(result, currentSession.queue_revision);
+        }
+
+        const candidate = sql
+          .exec<{
+            ticket_id: string;
+            display_number: string;
+            service_id: string;
+            lifecycle_status: string;
+            call_count: number;
+          }>(
+            `SELECT ticket_id, display_number, service_id, lifecycle_status, call_count
+             FROM tickets
+             WHERE session_id = ? AND lifecycle_status = 'WAITING'
+             ORDER BY sequence_number ASC
+             LIMIT 1`,
+            currentSession.session_id,
+          )
+          .toArray()[0];
+        if (!candidate) {
+          const result = createCallNextErrorResult(
+            "NO_WAITING_TICKETS",
+            "No waiting tickets are available.",
+          );
+          return storeResult(result, currentSession.queue_revision);
+        }
+
+        if (
+          !Number.isSafeInteger(candidate.call_count) ||
+          candidate.call_count < 0 ||
+          candidate.call_count >= Number.MAX_SAFE_INTEGER
+        ) {
+          return { kind: "call-count-exhausted" };
+        }
+        const graceDeadlineMilliseconds =
+          acceptedAt.getTime() + currentSession.grace_period_seconds * 1000;
+        if (
+          !Number.isSafeInteger(currentSession.grace_period_seconds) ||
+          currentSession.grace_period_seconds < 0 ||
+          !Number.isSafeInteger(graceDeadlineMilliseconds) ||
+          graceDeadlineMilliseconds > MAX_CONTRACT_DATETIME_MILLISECONDS
+        ) {
+          return { kind: "queue-config-invalid" };
+        }
+
+        const currentLifecycle = LifecycleStatusSchema.parse(candidate.lifecycle_status);
+        const nextLifecycle = transitionLifecycle(currentLifecycle, "CALL", "STAFF");
+        if (nextLifecycle !== "CALLED") {
+          throw new Error("The Call Next transition did not produce CALLED state.");
+        }
+        const nextRevision = advanceQueueRevision(currentSession.queue_revision);
+        const callCount = candidate.call_count + 1;
+        const calledAt = acceptedAtIso;
+        const graceDeadline = new Date(graceDeadlineMilliseconds).toISOString();
+        const response = CallNextResponseSchema.parse({
+          sessionId: currentSession.session_id,
+          ticket: {
+            ticketId: candidate.ticket_id,
+            displayNumber: candidate.display_number,
+            serviceId: candidate.service_id,
+            lifecycleStatus: nextLifecycle,
+            callCount,
+            calledAt,
+            graceDeadline,
+          },
+          queueRevision: nextRevision,
+        });
+        const result = StoredCallNextResultSchema.parse({ status: 200, body: response });
+
+        sql.exec(
+          `UPDATE tickets SET lifecycle_status = ?, called_at = ?, grace_deadline = ?,
+                               call_count = ?, last_mutation_revision = ?
+           WHERE ticket_id = ? AND session_id = ? AND lifecycle_status = 'WAITING'`,
+          nextLifecycle,
+          calledAt,
+          graceDeadline,
+          callCount,
+          nextRevision,
+          candidate.ticket_id,
+          currentSession.session_id,
+        );
+        sql.exec(
+          "UPDATE queue_session SET queue_revision = ? WHERE session_id = ? AND is_current = 1",
+          nextRevision,
+          currentSession.session_id,
+        );
+        sql.exec(
+          `INSERT INTO events (
+            event_id, session_id, queue_revision, event_type, ticket_id, actor_type,
+            actor_id, occurred_at, safe_payload_json
+          ) VALUES (?, ?, ?, 'TICKET_CALLED', ?, 'MERCHANT', ?, ?, ?)`,
+          crypto.randomUUID(),
+          currentSession.session_id,
+          nextRevision,
+          candidate.ticket_id,
+          command.actorScope,
+          calledAt,
+          JSON.stringify({ displayNumber: candidate.display_number }),
+        );
+        return storeResult(result, nextRevision);
+      });
+    } catch (error) {
+      if (error instanceof QueueDomainError && error.code === "INVALID_REVISION") {
+        return apiErrorResponse(
+          "QUEUE_REVISION_EXHAUSTED",
+          "The queue cannot advance its revision safely.",
+          409,
+        );
+      }
+      throw error;
+    }
+
+    if (outcome.kind === "idempotency-conflict") {
+      return apiErrorResponse(
+        "IDEMPOTENCY_CONFLICT",
+        "The command ID was already used for a different command.",
+        409,
+      );
+    }
+    if (outcome.kind === "queue-id-mismatch") {
+      return apiErrorResponse(
+        "QUEUE_ID_MISMATCH",
+        "The Durable Object is already assigned to a different queue.",
+        409,
+      );
+    }
+    if (outcome.kind === "invalid-receipt") {
+      return apiErrorResponse("INTERNAL_ERROR", "The stored command result is unavailable.", 500);
+    }
+    if (outcome.kind === "queue-config-invalid") {
+      return apiErrorResponse("QUEUE_CONFIG_INVALID", "The queue grace period is invalid.", 500);
+    }
+    if (outcome.kind === "call-count-exhausted") {
+      return apiErrorResponse(
+        "QUEUE_CALL_COUNT_EXHAUSTED",
+        "The ticket call counter cannot advance safely.",
+        409,
+      );
     }
 
     return jsonResponse(outcome.result.body, outcome.result.status);
@@ -868,8 +1184,9 @@ function insertCommandReceipt(
   sql: SqlStorage,
   commandId: string,
   actorScopeHash: string,
+  commandType: string,
   requestFingerprint: string,
-  result: StoredOpenSessionResult,
+  result: StoredCommandResult,
   resultRevision: number,
   createdAt: string,
   expiresAt: string,
@@ -881,7 +1198,7 @@ function insertCommandReceipt(
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     commandId,
     actorScopeHash,
-    OPEN_SESSION_COMMAND_TYPE,
+    commandType,
     requestFingerprint,
     JSON.stringify(result),
     resultRevision,
@@ -904,6 +1221,16 @@ function equalHexDigest(actual: string, expected: string): boolean {
     difference |= actual.charCodeAt(index) ^ (expected.charCodeAt(index) ?? 0);
   }
   return difference === 0;
+}
+
+function createCallNextErrorResult(
+  code: "NO_WAITING_TICKETS" | "QUEUE_CLOSED",
+  message: string,
+): StoredCallNextResult {
+  return StoredCallNextResultSchema.parse({
+    status: 409,
+    body: { error: { code, message } },
+  });
 }
 
 function apiErrorResponse(

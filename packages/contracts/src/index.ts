@@ -7,6 +7,9 @@ export type {
   QueueStatus,
 } from "./domain.js";
 export {
+  CallNextErrorResponseSchema,
+  CallNextRequestSchema,
+  CallNextResponseSchema,
   CancelTicketRequestSchema,
   JoinQueueRequestSchema,
   OpenQueueSessionRequestSchema,
@@ -21,6 +24,9 @@ export {
   QueueStatusSchema,
   type QueueRevision,
   UpdatePresenceRequestSchema,
+  type CallNextErrorResponse,
+  type CallNextRequest,
+  type CallNextResponse,
   type CancelTicketRequest,
   type JoinQueueRequest,
   type OpenQueueSessionRequest,

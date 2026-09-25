@@ -17,6 +17,7 @@ export {
   QueueChangedEventSchema,
   QueueRevisionSchema,
   QueueSessionConfigSnapshotSchema,
+  DEFAULT_RETURN_WINDOW_BUFFER_SECONDS,
   QueueStatusSchema,
   type QueueRevision,
   UpdatePresenceRequestSchema,

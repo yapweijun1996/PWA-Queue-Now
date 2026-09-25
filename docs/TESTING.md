@@ -18,6 +18,7 @@ Fast and exhaustive:
 - D1 projection
 - auth/capability enforcement
 - Cloudflare Web Crypto join-recovery envelope round-trip, wrong-key rejection, tamper rejection, and context binding
+- SQLite DO join transaction: ticket/hash/receipt/event atomicity, ID-only, correct, and wrong recovery proof, intent conflict, capability-hash corruption, queue pause/close behavior, counter-exhaustion rollback, and session-scoped revisions
 - WebSocket event contracts
 
 ### Concurrency
@@ -47,7 +48,7 @@ Playwright:
 
 ### 1. Unique join allocation
 
-Run at least 50 simultaneous joins with unique idempotency IDs.
+Run at least 50 simultaneous joins with unique idempotency IDs. The local Cloudflare runtime currently exercises 50 unique joins and eight identical requests racing together.
 
 Assert:
 - 50 tickets

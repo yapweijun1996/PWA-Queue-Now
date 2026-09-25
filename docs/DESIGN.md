@@ -138,9 +138,9 @@ V1 uses deterministic estimates:
 2. compute active-service remaining work as `max(0, expected duration - elapsed)` and treat idle capacity as zero workload,
 3. assign each eligible waiting ticket ahead, in queue-selection order, to the least-loaded service lane,
 4. estimate the customer's start time from the least-loaded lane after those tickets,
-5. return a range around that estimate using a server-supplied uncertainty buffer, clamped so its start is not before now.
+5. return a range around that estimate using the server-owned 300-second V1 uncertainty buffer, clamped so its start is not before now.
 
-The pure estimator receives already ordered, resolved durations; the DO/runtime remains responsible for selecting eligible tickets and the applicable buffer. The estimate is advisory and must refresh when authoritative queue state changes.
+The pure estimator receives already ordered, resolved durations; the DO/runtime remains responsible for selecting eligible tickets and supplies the buffer snapshotted in the session. The current join runtime uses configured defaults because bounded D1 history samples are not wired yet. The estimate is advisory and must refresh when authoritative queue state changes.
 
 Display a range, for example:
 

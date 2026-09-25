@@ -1,13 +1,31 @@
 import {
+  JoinQueueRequestSchema,
+  JoinQueueResponseSchema,
   OpenQueueSessionRequestSchema,
   OpenQueueSessionResponseSchema,
   QueueSessionConfigSnapshotSchema,
+  type JoinQueueResponse,
 } from "@queuenow/contracts";
-import { QueueDomainError, resolveCommandReceipt, type CommandReceipt } from "@queuenow/queue-core";
+import {
+  advanceQueueRevision,
+  calculateNextSequenceAllocation,
+  estimateReturnWindow,
+  estimateServiceDurationSeconds,
+  formatDisplayNumber,
+  QueueDomainError,
+  resolveCommandReceipt,
+  type CommandReceipt,
+} from "@queuenow/queue-core";
 import { DurableObject } from "cloudflare:workers";
 import { z } from "zod";
+import {
+  decryptJoinCapabilityEnvelope,
+  encryptJoinCapabilityEnvelope,
+  generateTicketCapability,
+  JoinRecoveryInvalidError,
+} from "./join-recovery.js";
 
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 const OPEN_SESSION_COMMAND_TYPE = "OPEN_QUEUE_SESSION";
 const COMMAND_RECEIPT_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -19,6 +37,12 @@ const InternalOpenQueueSessionIdentitySchema = OpenQueueSessionRequestSchema.ext
 const InternalOpenQueueSessionCommandSchema = InternalOpenQueueSessionIdentitySchema.extend({
   configSnapshot: QueueSessionConfigSnapshotSchema,
 }).strict();
+
+const InternalJoinQueueCommandSchema = JoinQueueRequestSchema.extend({
+  queueId: z.string().min(1).max(128),
+}).strict();
+
+const StoredJoinResultSchema = JoinQueueResponseSchema.pick({ ticket: true }).strict();
 
 const OpenSessionErrorSchema = z
   .object({
@@ -39,17 +63,50 @@ const StoredOpenSessionResultSchema = z
   .strict();
 
 type StoredOpenSessionResult = z.infer<typeof StoredOpenSessionResultSchema>;
+type StoredJoinResult = z.infer<typeof StoredJoinResultSchema>;
+type InternalJoinQueueCommand = z.infer<typeof InternalJoinQueueCommandSchema>;
 type InternalQueueApiErrorCode =
   | "IDEMPOTENCY_CONFLICT"
+  | "INTERNAL_ERROR"
   | "INVALID_REQUEST"
+  | "INVALID_SERVICE"
+  | "JOIN_RECOVERY_INVALID"
+  | "QUEUE_CLOSED"
   | "QUEUE_CONFIG_REQUIRED"
-  | "QUEUE_ID_MISMATCH";
+  | "QUEUE_ID_MISMATCH"
+  | "QUEUE_PAUSED"
+  | "QUEUE_REVISION_EXHAUSTED"
+  | "QUEUE_SEQUENCE_EXHAUSTED"
+  | "QUEUE_STATE_CHANGED";
 type OpenSessionOutcome =
   | { readonly kind: "result"; readonly result: StoredOpenSessionResult }
   | { readonly kind: "idempotency-conflict" }
   | { readonly kind: "queue-id-mismatch" }
   | { readonly kind: "queue-config-required" }
   | { readonly kind: "invalid-request" };
+type JoinQueueOutcome =
+  | { readonly kind: "accepted"; readonly response: JoinQueueResponse }
+  | { readonly kind: "receipt-exists" }
+  | { readonly kind: "queue-id-mismatch" }
+  | { readonly kind: "queue-closed" }
+  | { readonly kind: "queue-paused" }
+  | { readonly kind: "invalid-service" }
+  | { readonly kind: "session-changed" };
+type JoinReceiptReplay =
+  | { readonly kind: "missing" }
+  | { readonly kind: "response"; readonly response: Response };
+
+interface ActiveQueueSessionRow {
+  readonly [column: string]: string | number;
+  readonly session_id: string;
+  readonly queue_id: string;
+  readonly status: string;
+  readonly next_sequence: number;
+  readonly prefix: string;
+  readonly service_capacity: number;
+  readonly queue_revision: number;
+  readonly config_snapshot_json: string;
+}
 
 export class QueueDurableObject extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
@@ -72,6 +129,11 @@ export class QueueDurableObject extends DurableObject<Env> {
         schemaVersion: schema.version ?? 0,
         sessionCount: sessions.count,
       });
+    }
+
+    // The public Worker must resolve the queue and keep this internal command path private.
+    if (request.method === "POST" && url.pathname === "/_internal/tickets/join") {
+      return this.joinQueue(request);
     }
 
     // The public Worker must authenticate and authorize before forwarding this internal command.
@@ -260,6 +322,413 @@ export class QueueDurableObject extends DurableObject<Env> {
     return jsonResponse(outcome.result.body, outcome.result.status);
   }
 
+  private async joinQueue(request: Request): Promise<Response> {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiErrorResponse("INVALID_REQUEST", "The request body must be valid JSON.", 400);
+    }
+
+    const parsedCommand = InternalJoinQueueCommandSchema.safeParse(body);
+    if (!parsedCommand.success) {
+      return apiErrorResponse("INVALID_REQUEST", "The queue join request is invalid.", 400);
+    }
+    const command = parsedCommand.data;
+
+    const priorReceipt = await this.replayJoinReceipt(command);
+    if (priorReceipt.kind === "response") {
+      return priorReceipt.response;
+    }
+
+    const sql = this.ctx.storage.sql;
+    const preparedSession = sql
+      .exec<ActiveQueueSessionRow>(
+        `SELECT session_id, queue_id, status, next_sequence, prefix, service_capacity,
+                queue_revision, config_snapshot_json
+         FROM queue_session WHERE is_current = 1`,
+      )
+      .toArray()[0];
+    if (!preparedSession) {
+      return apiErrorResponse("QUEUE_CLOSED", "The queue is not open.", 409);
+    }
+    if (preparedSession.queue_id !== command.queueId) {
+      return apiErrorResponse(
+        "QUEUE_ID_MISMATCH",
+        "The Durable Object is already assigned to a different queue.",
+        409,
+      );
+    }
+    if (preparedSession.status === "PAUSED") {
+      return apiErrorResponse("QUEUE_PAUSED", "The queue is paused.", 409);
+    }
+    if (preparedSession.status !== "OPEN") {
+      return apiErrorResponse("QUEUE_CLOSED", "The queue is not open.", 409);
+    }
+
+    const preparedConfig = QueueSessionConfigSnapshotSchema.parse(
+      JSON.parse(preparedSession.config_snapshot_json),
+    );
+    if (!preparedConfig.services.some((service) => service.serviceId === command.serviceId)) {
+      return apiErrorResponse("INVALID_SERVICE", "The selected service is not available.", 400);
+    }
+
+    const ticketId = crypto.randomUUID();
+    const ticketCapability = generateTicketCapability();
+    const recoveryContext = {
+      queueId: command.queueId,
+      sessionId: preparedSession.session_id,
+      joinRequestId: command.joinRequestId,
+      serviceId: command.serviceId,
+      ticketId,
+    };
+    const [requestFingerprint, capabilityHash, capabilityEnvelope] = await Promise.all([
+      sha256Hex(JSON.stringify([command.queueId, preparedSession.session_id, command.serviceId])),
+      sha256Hex(ticketCapability),
+      encryptJoinCapabilityEnvelope(command.joinRecoverySecret, ticketCapability, recoveryContext),
+    ]);
+    const acceptedAt = new Date();
+    const acceptedAtIso = acceptedAt.toISOString();
+    const expiresAt = new Date(acceptedAt.getTime() + COMMAND_RECEIPT_TTL_MS).toISOString();
+
+    let outcome: JoinQueueOutcome;
+    try {
+      outcome = this.ctx.storage.transactionSync(() => {
+        sql.exec("DELETE FROM join_receipts WHERE expires_at <= ?", acceptedAtIso);
+
+        const duplicateReceipt = sql
+          .exec<{ join_request_id: string }>(
+            "SELECT join_request_id FROM join_receipts WHERE join_request_id = ?",
+            command.joinRequestId,
+          )
+          .toArray()[0];
+        if (duplicateReceipt) {
+          return { kind: "receipt-exists" };
+        }
+
+        const currentSession = sql
+          .exec<ActiveQueueSessionRow>(
+            `SELECT session_id, queue_id, status, next_sequence, prefix, service_capacity,
+                    queue_revision, config_snapshot_json
+             FROM queue_session WHERE is_current = 1`,
+          )
+          .toArray()[0];
+        if (!currentSession) {
+          return { kind: "queue-closed" };
+        }
+        if (currentSession.queue_id !== command.queueId) {
+          return { kind: "queue-id-mismatch" };
+        }
+        if (currentSession.session_id !== preparedSession.session_id) {
+          return { kind: "session-changed" };
+        }
+        if (currentSession.status === "PAUSED") {
+          return { kind: "queue-paused" };
+        }
+        if (currentSession.status !== "OPEN") {
+          return { kind: "queue-closed" };
+        }
+
+        const config = QueueSessionConfigSnapshotSchema.parse(
+          JSON.parse(currentSession.config_snapshot_json),
+        );
+        const selectedService = config.services.find(
+          (service) => service.serviceId === command.serviceId,
+        );
+        if (!selectedService) {
+          return { kind: "invalid-service" };
+        }
+
+        const allocation = calculateNextSequenceAllocation(currentSession.next_sequence);
+        const nextRevision = advanceQueueRevision(currentSession.queue_revision);
+        const peopleAhead = sql
+          .exec<{ count: number }>(
+            `SELECT COUNT(*) AS count FROM tickets
+             WHERE session_id = ? AND sequence_number < ?
+               AND lifecycle_status IN ('WAITING', 'CALLED', 'SERVING')`,
+            currentSession.session_id,
+            allocation.sequenceNumber,
+          )
+          .one().count;
+        const activeServiceRows = sql
+          .exec<{ service_id: string; service_started_at: string | null }>(
+            `SELECT service_id, service_started_at FROM tickets
+             WHERE session_id = ? AND lifecycle_status = 'SERVING'
+             ORDER BY sequence_number ASC`,
+            currentSession.session_id,
+          )
+          .toArray();
+        const waitingAheadRows = sql
+          .exec<{ service_id: string }>(
+            `SELECT service_id FROM tickets
+             WHERE session_id = ? AND sequence_number < ?
+               AND lifecycle_status IN ('WAITING', 'CALLED')
+             ORDER BY sequence_number ASC`,
+            currentSession.session_id,
+            allocation.sequenceNumber,
+          )
+          .toArray();
+        const defaultDuration = (serviceId: string): number => {
+          const service = config.services.find((candidate) => candidate.serviceId === serviceId);
+          if (!service) {
+            throw new Error(
+              "A live ticket references a service missing from its session snapshot.",
+            );
+          }
+          return estimateServiceDurationSeconds(service.defaultDurationSeconds, []).durationSeconds;
+        };
+        const activeServices = activeServiceRows.map((activeService) => {
+          if (!activeService.service_started_at) {
+            throw new Error("A serving ticket has no service start time.");
+          }
+          const startedAt = Date.parse(activeService.service_started_at);
+          const elapsedMilliseconds = acceptedAt.getTime() - startedAt;
+          if (!Number.isSafeInteger(startedAt) || elapsedMilliseconds < 0) {
+            throw new Error("A serving ticket has an invalid service start time.");
+          }
+          return {
+            expectedDurationSeconds: defaultDuration(activeService.service_id),
+            elapsedMilliseconds,
+          };
+        });
+        const estimate = estimateReturnWindow({
+          nowMilliseconds: acceptedAt.getTime(),
+          serviceCapacity: currentSession.service_capacity,
+          activeServices,
+          waitingAheadDurationsSeconds: waitingAheadRows.map((ticket) =>
+            defaultDuration(ticket.service_id),
+          ),
+          uncertaintyBufferSeconds: config.returnWindowBufferSeconds,
+        });
+        const displayNumber = formatDisplayNumber(currentSession.prefix, allocation.sequenceNumber);
+        const response = JoinQueueResponseSchema.parse({
+          ticket: {
+            ticketId,
+            displayNumber,
+            lifecycleStatus: "WAITING",
+            presenceStatus: "UNKNOWN",
+            peopleAhead,
+            returnWindow: {
+              from: new Date(estimate.earliestReturnAtMilliseconds).toISOString(),
+              to: new Date(estimate.latestReturnAtMilliseconds).toISOString(),
+            },
+            queueRevision: nextRevision,
+          },
+          ticketCapability,
+        });
+        const safeResult = StoredJoinResultSchema.parse({ ticket: response.ticket });
+
+        sql.exec(
+          `UPDATE queue_session SET next_sequence = ?, queue_revision = ?
+           WHERE session_id = ? AND is_current = 1 AND status = 'OPEN'`,
+          allocation.nextSequence,
+          nextRevision,
+          currentSession.session_id,
+        );
+        sql.exec(
+          `INSERT INTO tickets (
+            ticket_id, session_id, sequence_number, display_number, service_id,
+            lifecycle_status, presence_status, joined_at, called_at, grace_deadline,
+            service_started_at, completed_at, cancelled_at, skipped_at, expired_at,
+            call_count, capability_hash, last_mutation_revision
+          ) VALUES (?, ?, ?, ?, ?, 'WAITING', 'UNKNOWN', ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, ?, ?)`,
+          ticketId,
+          currentSession.session_id,
+          allocation.sequenceNumber,
+          displayNumber,
+          command.serviceId,
+          acceptedAtIso,
+          capabilityHash,
+          nextRevision,
+        );
+        sql.exec(
+          `INSERT INTO events (
+            event_id, session_id, queue_revision, event_type, ticket_id, actor_type,
+            actor_id, occurred_at, safe_payload_json
+          ) VALUES (?, ?, ?, 'TICKET_JOINED', ?, 'CUSTOMER', NULL, ?, ?)`,
+          crypto.randomUUID(),
+          currentSession.session_id,
+          nextRevision,
+          ticketId,
+          acceptedAtIso,
+          JSON.stringify({ displayNumber }),
+        );
+        sql.exec(
+          `INSERT INTO join_receipts (
+            join_request_id, session_id, request_fingerprint, ticket_id, safe_result_json,
+            ticket_capability_envelope_json, created_at, expires_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          command.joinRequestId,
+          currentSession.session_id,
+          requestFingerprint,
+          ticketId,
+          JSON.stringify(safeResult),
+          JSON.stringify(capabilityEnvelope),
+          acceptedAtIso,
+          expiresAt,
+        );
+
+        return { kind: "accepted", response };
+      });
+    } catch (error) {
+      if (error instanceof QueueDomainError && error.code === "INVALID_SEQUENCE") {
+        return apiErrorResponse(
+          "QUEUE_SEQUENCE_EXHAUSTED",
+          "The queue cannot allocate another ticket number.",
+          409,
+        );
+      }
+      if (error instanceof QueueDomainError && error.code === "INVALID_REVISION") {
+        return apiErrorResponse(
+          "QUEUE_REVISION_EXHAUSTED",
+          "The queue cannot advance its revision safely.",
+          409,
+        );
+      }
+      throw error;
+    }
+
+    if (outcome.kind === "receipt-exists") {
+      const racedReceipt = await this.replayJoinReceipt(command);
+      if (racedReceipt.kind === "response") {
+        return racedReceipt.response;
+      }
+      return apiErrorResponse(
+        "QUEUE_STATE_CHANGED",
+        "The queue changed while the join was being processed. Retry explicitly while online.",
+        409,
+      );
+    }
+    if (outcome.kind === "queue-id-mismatch") {
+      return apiErrorResponse(
+        "QUEUE_ID_MISMATCH",
+        "The Durable Object is already assigned to a different queue.",
+        409,
+      );
+    }
+    if (outcome.kind === "queue-closed") {
+      return apiErrorResponse("QUEUE_CLOSED", "The queue is not open.", 409);
+    }
+    if (outcome.kind === "queue-paused") {
+      return apiErrorResponse("QUEUE_PAUSED", "The queue is paused.", 409);
+    }
+    if (outcome.kind === "invalid-service") {
+      return apiErrorResponse("INVALID_SERVICE", "The selected service is not available.", 400);
+    }
+    if (outcome.kind === "session-changed") {
+      return apiErrorResponse(
+        "QUEUE_STATE_CHANGED",
+        "The queue session changed while the join was being processed. Retry explicitly while online.",
+        409,
+      );
+    }
+
+    return jsonResponse(outcome.response, 201);
+  }
+
+  private async replayJoinReceipt(command: InternalJoinQueueCommand): Promise<JoinReceiptReplay> {
+    const row = this.ctx.storage.sql
+      .exec<{
+        session_id: string;
+        request_fingerprint: string;
+        ticket_id: string;
+        safe_result_json: string;
+        ticket_capability_envelope_json: string;
+        expires_at: string;
+      }>(
+        `SELECT session_id, request_fingerprint, ticket_id, safe_result_json,
+                ticket_capability_envelope_json, expires_at
+         FROM join_receipts WHERE join_request_id = ?`,
+        command.joinRequestId,
+      )
+      .toArray()[0];
+    if (!row || row.expires_at <= new Date().toISOString()) {
+      return { kind: "missing" };
+    }
+
+    const requestFingerprint = await sha256Hex(
+      JSON.stringify([command.queueId, row.session_id, command.serviceId]),
+    );
+    if (requestFingerprint !== row.request_fingerprint) {
+      return {
+        kind: "response",
+        response: apiErrorResponse(
+          "IDEMPOTENCY_CONFLICT",
+          "The join request ID was already used for a different queue, session, or service.",
+          409,
+        ),
+      };
+    }
+
+    let safeResult: StoredJoinResult;
+    let envelope: unknown;
+    try {
+      safeResult = StoredJoinResultSchema.parse(JSON.parse(row.safe_result_json));
+      envelope = JSON.parse(row.ticket_capability_envelope_json);
+    } catch {
+      return {
+        kind: "response",
+        response: apiErrorResponse("INTERNAL_ERROR", "The stored join result is unavailable.", 500),
+      };
+    }
+
+    if (safeResult.ticket.ticketId !== row.ticket_id) {
+      return {
+        kind: "response",
+        response: apiErrorResponse("INTERNAL_ERROR", "The stored join result is unavailable.", 500),
+      };
+    }
+
+    const ticket = this.ctx.storage.sql
+      .exec<{ session_id: string; capability_hash: string }>(
+        "SELECT session_id, capability_hash FROM tickets WHERE ticket_id = ?",
+        row.ticket_id,
+      )
+      .toArray()[0];
+    if (!ticket || ticket.session_id !== row.session_id) {
+      return {
+        kind: "response",
+        response: apiErrorResponse("INTERNAL_ERROR", "The stored join result is unavailable.", 500),
+      };
+    }
+
+    let ticketCapability: string;
+    try {
+      ticketCapability = await decryptJoinCapabilityEnvelope(command.joinRecoverySecret, envelope, {
+        queueId: command.queueId,
+        sessionId: row.session_id,
+        joinRequestId: command.joinRequestId,
+        serviceId: command.serviceId,
+        ticketId: row.ticket_id,
+      });
+    } catch (error) {
+      if (error instanceof JoinRecoveryInvalidError) {
+        return {
+          kind: "response",
+          response: apiErrorResponse(
+            "JOIN_RECOVERY_INVALID",
+            "The join recovery proof is invalid.",
+            403,
+          ),
+        };
+      }
+      throw error;
+    }
+
+    const capabilityHash = await sha256Hex(ticketCapability);
+    if (!equalHexDigest(capabilityHash, ticket.capability_hash)) {
+      return {
+        kind: "response",
+        response: apiErrorResponse("INTERNAL_ERROR", "The stored join result is unavailable.", 500),
+      };
+    }
+    const response = JoinQueueResponseSchema.parse({
+      ...safeResult,
+      ticketCapability,
+    });
+    return { kind: "response", response: jsonResponse(response, 201) };
+  }
+
   private migrate(): void {
     const sql = this.ctx.storage.sql;
     this.ctx.storage.transactionSync(() => {
@@ -328,6 +797,69 @@ export class QueueDurableObject extends DurableObject<Env> {
           new Date().toISOString(),
         );
       }
+
+      if (currentVersion < 3) {
+        sql.exec(`
+          CREATE TABLE IF NOT EXISTS tickets (
+            ticket_id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL REFERENCES queue_session(session_id),
+            sequence_number INTEGER NOT NULL CHECK (sequence_number > 0),
+            display_number TEXT NOT NULL,
+            service_id TEXT NOT NULL,
+            lifecycle_status TEXT NOT NULL CHECK (lifecycle_status IN (
+              'WAITING', 'CALLED', 'SERVING', 'COMPLETED', 'SKIPPED', 'CANCELLED', 'EXPIRED'
+            )),
+            presence_status TEXT NOT NULL CHECK (presence_status IN (
+              'UNKNOWN', 'AWAY', 'NEARBY', 'RETURNED'
+            )),
+            joined_at TEXT NOT NULL,
+            called_at TEXT,
+            grace_deadline TEXT,
+            service_started_at TEXT,
+            completed_at TEXT,
+            cancelled_at TEXT,
+            skipped_at TEXT,
+            expired_at TEXT,
+            call_count INTEGER NOT NULL DEFAULT 0 CHECK (call_count >= 0),
+            capability_hash TEXT NOT NULL CHECK (length(capability_hash) = 64),
+            last_mutation_revision INTEGER NOT NULL CHECK (last_mutation_revision >= 0),
+            UNIQUE (session_id, sequence_number)
+          );
+          CREATE INDEX IF NOT EXISTS tickets_by_session_status_sequence
+          ON tickets (session_id, lifecycle_status, sequence_number);
+
+          CREATE TABLE IF NOT EXISTS events (
+            event_id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL REFERENCES queue_session(session_id),
+            queue_revision INTEGER NOT NULL CHECK (queue_revision >= 0),
+            event_type TEXT NOT NULL,
+            ticket_id TEXT REFERENCES tickets(ticket_id),
+            actor_type TEXT NOT NULL CHECK (actor_type IN ('CUSTOMER', 'MERCHANT', 'SYSTEM')),
+            actor_id TEXT,
+            occurred_at TEXT NOT NULL,
+            safe_payload_json TEXT NOT NULL,
+            UNIQUE (session_id, queue_revision)
+          );
+
+          CREATE TABLE IF NOT EXISTS join_receipts (
+            join_request_id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL REFERENCES queue_session(session_id),
+            request_fingerprint TEXT NOT NULL CHECK (length(request_fingerprint) = 64),
+            ticket_id TEXT NOT NULL REFERENCES tickets(ticket_id),
+            safe_result_json TEXT NOT NULL,
+            ticket_capability_envelope_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS join_receipts_by_expiry
+          ON join_receipts (expires_at);
+        `);
+        sql.exec(
+          "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)",
+          3,
+          new Date().toISOString(),
+        );
+      }
     });
   }
 }
@@ -361,6 +893,17 @@ function insertCommandReceipt(
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function equalHexDigest(actual: string, expected: string): boolean {
+  if (actual.length !== 64 || !/^[a-f0-9]{64}$/.test(expected)) {
+    return false;
+  }
+  let difference = 0;
+  for (let index = 0; index < actual.length; index += 1) {
+    difference |= actual.charCodeAt(index) ^ (expected.charCodeAt(index) ?? 0);
+  }
+  return difference === 0;
 }
 
 function apiErrorResponse(

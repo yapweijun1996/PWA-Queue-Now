@@ -54,7 +54,9 @@ The capability must not be exposed in logs.
 
 For each logical join, the client generates a separate 32-byte CSPRNG `joinRecoverySecret` and persists it with `joinRequestId` before sending the request. It reuses both only for an explicit online retry of the same queue/session/service intent. `joinRequestId` locates a receipt; it is not authorization. The recovery secret is proof required to replay a retained join result and is never returned by the API.
 
-The Durable Object stores the capability verifier on the ticket and a versioned encrypted capability envelope in the join receipt; it stores neither raw secret. The request fingerprint binds queue, session, and service, excluding the request ID and recovery secret. A matching receipt is replayed only after envelope decryption succeeds. Invalid proof returns `JOIN_RECOVERY_INVALID` without ticket data or mutation; changed intent returns `IDEMPOTENCY_CONFLICT`. Join receipts have a 24-hour retry horizon. The client replaces the pending recovery secret with the returned ticket capability only after safely persisting the ticket and capability. Never log either secret or automatically replay a pending join offline/background.
+The Durable Object stores the capability verifier on the ticket and a versioned encrypted capability envelope in the join receipt; it stores neither raw secret. The request fingerprint is SHA-256 of UTF-8 `JSON.stringify([queueId, sessionId, serviceId])`, excluding the request ID and recovery secret. A matching receipt is replayed only after envelope decryption and capability-hash verification; accepted ticket, sequence, revision, event, safe result, and envelope are committed atomically. Invalid proof returns `JOIN_RECOVERY_INVALID` without ticket data or mutation; changed intent returns `IDEMPOTENCY_CONFLICT`. Join receipts have a 24-hour retry horizon. The client replaces the pending recovery secret with the returned ticket capability only after safely persisting the ticket and capability. Never log either secret or automatically replay a pending join offline/background.
+
+`peopleAhead` counts earlier tickets in the active session whose lifecycle is `WAITING`, `CALLED`, or `SERVING`; skipped and terminal tickets are excluded. The initial return-window calculation uses configured default service durations, current serving-ticket elapsed times, service capacity, and the session's server-owned 300-second V1 buffer. D1 history samples are not yet wired into the runtime, so the configured defaults are used for now. The public Worker must resolve the queue slug and active session server-side before forwarding an internal join; it must not accept a client-selected Durable Object identity. The current Worker still exposes only `/health` and does not yet publish this join route.
 
 ## Customer ticket
 
@@ -229,10 +231,14 @@ Representative codes:
 - `QUEUE_SESSION_ACTIVE` (internal DO response when a current session prevents creating another)
 - `QUEUE_CLOSED`
 - `QUEUE_PAUSED`
+- `QUEUE_STATE_CHANGED`
+- `QUEUE_SEQUENCE_EXHAUSTED`
+- `QUEUE_REVISION_EXHAUSTED`
 - `INVALID_SERVICE`
 - `TICKET_NOT_FOUND`
 - `CAPABILITY_INVALID`
 - `JOIN_RECOVERY_INVALID`
+- `INTERNAL_ERROR`
 - `UNAUTHORIZED`
 - `FORBIDDEN`
 - `ILLEGAL_TRANSITION`

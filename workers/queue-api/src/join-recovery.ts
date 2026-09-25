@@ -39,6 +39,10 @@ export class JoinRecoveryInvalidError extends Error {
   }
 }
 
+export function generateTicketCapability(): string {
+  return encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
 export async function encryptJoinCapabilityEnvelope(
   recoverySecret: string,
   ticketCapability: string,

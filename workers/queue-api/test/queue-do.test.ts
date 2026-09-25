@@ -11,6 +11,7 @@ const sessionConfig = {
   startSequence: 25,
   gracePeriodSeconds: 300,
   serviceCapacity: 2,
+  returnWindowBufferSeconds: 300,
   services: [
     {
       serviceId: "service_01",
@@ -42,6 +43,15 @@ describe("Queue API Worker runtime", () => {
       createExecutionContext(),
     );
     expect(internalResponse.status).toBe(404);
+    const internalJoinResponse = await exports.default.fetch(
+      new Request("https://queuenow.test/_internal/tickets/join", {
+        method: "POST",
+        body: "{}",
+      }),
+      env,
+      createExecutionContext(),
+    );
+    expect(internalJoinResponse.status).toBe(404);
   });
 
   it("runs schema migrations once through the Durable Object binding", async () => {
@@ -56,7 +66,7 @@ describe("Queue API Worker runtime", () => {
     expect(secondResponse.status).toBe(200);
     expect(await secondResponse.json()).toEqual({
       status: "ok",
-      schemaVersion: 2,
+      schemaVersion: 3,
       sessionCount: 0,
     });
   });

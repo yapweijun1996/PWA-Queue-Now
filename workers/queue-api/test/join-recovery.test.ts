@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   decryptJoinCapabilityEnvelope,
   encryptJoinCapabilityEnvelope,
+  generateTicketCapability,
   JoinRecoveryInvalidError,
   type JoinCapabilityContext,
 } from "../src/join-recovery.js";
@@ -18,6 +19,10 @@ const context: JoinCapabilityContext = {
 };
 
 describe("join capability recovery envelope", () => {
+  it("generates a 32-byte high-entropy ticket capability as unpadded base64url", () => {
+    expect(generateTicketCapability()).toMatch(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/);
+  });
+
   it("encrypts the capability and recovers it for the same secret and context", async () => {
     const envelope = await encryptJoinCapabilityEnvelope(recoverySecret, ticketCapability, context);
 

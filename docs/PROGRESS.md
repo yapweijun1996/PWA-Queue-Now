@@ -21,15 +21,15 @@ The npm workspace, strict TypeScript/quality baseline, and GitHub Actions CI wor
 | PWA rules | 100% | PWA_STANDARD |
 | CI/CD plan | 100% | CI_CD |
 | Test strategy | 100% | TESTING |
-| Implementation | 9% | Workspace/CI foundation, tested queue-core helpers/contracts, and local Worker session/config persistence with atomic open retries; no public business routes or user flows yet |
+| Implementation | 11% | Workspace/CI foundation, tested queue-core helpers/contracts, and local Worker session/config persistence plus atomic anonymous joins; public business routes and user flows are still absent |
 | Production deployment | 0% | Not started |
 | Pilot evidence | 0% | Not started |
 
 ## Overall delivery estimate
 
-**29%**
+**30%**
 
-Reason: product/engineering design is substantially defined; queue-core contracts and a first persisted DO operation are tested in Node and the Cloudflare local runtime. Authentication, customer/merchant/display flows, deployment, and real-world evidence remain absent; this is not product completion.
+Reason: product/engineering design is substantially defined; queue-core contracts and atomic session-open/join operations are tested in Node and the Cloudflare local runtime. Authentication, public routing, customer/merchant/display flows, deployment, and real-world evidence remain absent; this is not product completion.
 
 ## Current verified decisions
 
@@ -50,26 +50,26 @@ Reason: product/engineering design is substantially defined; queue-core contract
 - Queue sessions start at revision 0; pure revision arithmetic does not replace atomic DO persistence.
 - Command retries replay only on an exact command ID, actor scope, command type, and request-fingerprint match; the pure helper does not persist receipts.
 - WebSocket sends only strict `queue.changed` revision/time invalidations; clients refetch role-authorized snapshots.
-- Return-window estimates use a five-valid-sample median threshold, concurrent-lane workload simulation, and an explicit server-supplied buffer; the helper is advisory and pure.
-- The public Worker exposes only `/health`; the SQLite DO has schema v2 and an internal queue-open command, but the public Worker does not route it.
-- Session open atomically persists a validated server-supplied config snapshot and an exact command receipt; actor scope is hashed and receipts have a 24-hour retry horizon. The public Worker has no D1 lookup or merchant authorization yet, so the internal command must remain unforwarded.
-- Join recovery contract selected in ADR-016: `joinRequestId` is only a selector; a separate 32-byte secret proves replay of a DO-encrypted capability envelope. The shared request schema and HKDF/AES-GCM envelope helper are implemented; the Cloudflare runtime suite verifies round-trip, wrong-key, tampering, and context binding. Atomic receipt persistence, capability-hash verification, and replay behavior remain unimplemented.
+- Return-window estimates use a five-valid-sample median threshold and concurrent-lane workload simulation; V1 uses a fixed 300-second server-owned buffer snapshotted per session. The join runtime currently supplies configured default durations because D1 history samples are not wired; the estimate is advisory.
+- The public Worker exposes only `/health`; the SQLite DO has schema v3 and internal session-open and anonymous-join commands. Neither command is routed publicly; merchant authentication/D1 config and public queue lookup are still absent.
+- Session open atomically persists a validated server-supplied config snapshot and an exact command receipt; actor scope is hashed and receipts have a 24-hour retry horizon. The public Worker has no D1 lookup or merchant authorization yet, so the internal session-open command must remain unforwarded.
+- Join recovery follows ADR-016: `joinRequestId` is only a selector; a separate 32-byte secret proves replay of a DO-encrypted capability envelope. The DO atomically persists the ticket, capability hash, exact safe result, encrypted envelope, sequence, queue revision, and session-scoped event. Runtime tests cover exact recovery, ID-only and wrong-proof rejection, changed intent, capability-hash corruption, 50 unique concurrent joins, concurrent duplicate replay, closed/paused states, counter-exhaustion rollback, and re-opened-session event revisions. The public Worker does not yet resolve public queue identifiers or route this internal operation.
 - `packages/contracts` owns shared enums/schemas; queue-core imports only its dependency-free domain subpath.
 - Initial business niche: small barber/salon/beauty walk-in operations.
 - Free-tier-first, not “guaranteed free forever.”
 
 ## Latest local verification
 
-On 2026-09-25, `npm ci`, format/lint checks, strict TypeScript typechecks (including generated Wrangler types), the Wrangler dry-run build, 586 Node Vitest cases, 8 Cloudflare-runtime Vitest cases (including the join-recovery Web Crypto helper), and both compiled-package smoke tests passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
+On 2026-09-25, the latest slice passed `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, and `npm run test:dist`. The dry-run Worker build passed; 586 Node Vitest cases and 15 Cloudflare-runtime cases passed, including the atomic join/concurrency suite. Earlier baseline `npm ci` and dependency audit passed with zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
 
 ## Next implementation gate
 
-Keep the DO session command internal until the API can authenticate merchant calls and retrieve authoritative D1 configuration; then continue the persisted queue-flow slice using the reviewed join-recovery contract:
-- wire the tested envelope helper into an atomic DO join receipt with ticket-hash verification, exact retry, and no extra sequence/revision/event,
-- implement merchant auth/authorization and D1 configuration before forwarding the session-open command,
-- implement transactional DO handlers for joins and staff/customer commands with receipts, revisions, and persisted events,
-- wire the pure estimator to bounded history samples and select the runtime buffer policy,
-- runtime/API/browser integration and concurrency/restart verification.
+Keep the session-open command internal until the API can authenticate merchant calls and retrieve authoritative D1 configuration. Before exposing joins, resolve the public slug to the queue/session server-side and add abuse controls; never accept a client-selected DO identity. Then continue:
+- implement merchant auth/authorization and D1 configuration before forwarding session-open,
+- add transactional DO handlers for Call Next and staff/customer mutations with receipts, revisions, and persisted events,
+- wire bounded D1 history samples into the estimator; the V1 runtime buffer is fixed at 300 seconds in each session snapshot,
+- implement WebSocket snapshots/invalidation, customer/merchant/display flows, and browser E2E,
+- resolve QN-026 with defensible restart/eviction persistence evidence.
 
 ## Blockers
 

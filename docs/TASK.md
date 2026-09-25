@@ -23,7 +23,7 @@ Legend:
 | QN-010 | P0 | Implement lifecycle transition table | DONE |
 | QN-011 | P0 | Implement independent presence model | DONE |
 | QN-012 | P0 | Implement queue-session sequence allocator contract | DONE |
-| QN-013 | P0 | Implement join idempotency semantics | DOING |
+| QN-013 | P0 | Implement join idempotency semantics | DONE |
 | QN-014 | P0 | Implement command idempotency semantics | DOING |
 | QN-015 | P0 | Implement queue revision/event envelope | DOING |
 | QN-016 | P1 | Implement deterministic return-window estimator | DONE |
@@ -35,12 +35,12 @@ Legend:
 |---|---|---|---|
 | QN-020 | P0 | Create SQLite-backed Queue Durable Object | DONE |
 | QN-021 | P0 | Persist queue session/config snapshot | DONE |
-| QN-022 | P0 | Implement atomic anonymous join | TODO |
+| QN-022 | P0 | Implement atomic anonymous join | DONE |
 | QN-023 | P0 | Implement atomic Call Next | TODO |
 | QN-024 | P0 | Implement Start/Complete/Skip/Recall | TODO |
 | QN-025 | P0 | Implement customer cancel/presence mutation | TODO |
 | QN-026 | P0 | Prove restart/hibernation persistence | TODO |
-| QN-027 | P0 | Add 50+ concurrent join collision test | TODO |
+| QN-027 | P0 | Add 50+ concurrent join collision test | DONE |
 | QN-028 | P0 | Add concurrent Call Next double-selection test | TODO |
 | QN-029 | P1 | Add D1 terminal-history projection + retry marker | TODO |
 
@@ -99,7 +99,7 @@ Legend:
 
 | ID | Pri | Task | Status |
 |---|---|---|---|
-| QN-070 | P0 | Generate high-entropy ticket capability secret | TODO |
+| QN-070 | P0 | Generate high-entropy ticket capability secret | DONE |
 | QN-071 | P0 | Enforce capability on ticket-control endpoints | TODO |
 | QN-072 | P0 | Add merchant authorization on commands | TODO |
 | QN-073 | P0 | Add CSRF protection for cookie-auth mutations | TODO |

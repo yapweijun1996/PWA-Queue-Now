@@ -8,6 +8,8 @@ export const QueueStatusSchema = z.enum(queueStatuses);
 export const QueueRevisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 export type QueueRevision = z.infer<typeof QueueRevisionSchema>;
 
+export const DEFAULT_RETURN_WINDOW_BUFFER_SECONDS = 300;
+
 const QueueSessionServiceSnapshotSchema = z
   .object({
     serviceId: z.string().min(1).max(128),
@@ -26,6 +28,7 @@ export const QueueSessionConfigSnapshotSchema = z
       .max(Number.MAX_SAFE_INTEGER - 1),
     gracePeriodSeconds: z.number().int().min(0),
     serviceCapacity: z.number().int().min(1),
+    returnWindowBufferSeconds: z.literal(DEFAULT_RETURN_WINDOW_BUFFER_SECONDS),
     services: z.array(QueueSessionServiceSnapshotSchema).min(1).max(100),
   })
   .strict()

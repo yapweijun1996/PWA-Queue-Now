@@ -130,6 +130,7 @@ describe("merchant queue session schemas", () => {
     startSequence: 25,
     gracePeriodSeconds: 300,
     serviceCapacity: 2,
+    returnWindowBufferSeconds: 300,
     services: [
       {
         serviceId: "service_01",
@@ -148,6 +149,7 @@ describe("merchant queue session schemas", () => {
     expect(QueueSessionConfigSnapshotSchema.parse(validConfigSnapshot)).toMatchObject({
       prefix: "A",
       startSequence: 25,
+      returnWindowBufferSeconds: 300,
       services: [{ name: "Haircut" }],
     });
     expect(
@@ -172,6 +174,12 @@ describe("merchant queue session schemas", () => {
       QueueSessionConfigSnapshotSchema.safeParse({
         ...validConfigSnapshot,
         services: [...validConfigSnapshot.services, ...validConfigSnapshot.services],
+      }).success,
+    ).toBe(false);
+    expect(
+      QueueSessionConfigSnapshotSchema.safeParse({
+        ...validConfigSnapshot,
+        returnWindowBufferSeconds: 301,
       }).success,
     ).toBe(false);
     expect(

@@ -122,16 +122,15 @@ Request contains:
 - `joinRecoverySecret`
 
 Server:
-1. validates queue open and request shape,
+1. validates the request shape and resolves queue identity from server-owned routing/configuration,
 2. checks for a retained receipt and validates its intent fingerprint,
-3. for an exact retry, decrypts the capability envelope with the recovery secret and verifies the capability hash before returning the original ticket result and capability,
-4. for a new request, allocates the next sequence atomically,
-5. creates the ticket and cryptographically random capability,
-6. calculates the initial estimate,
-7. atomically persists ticket, receipt, safe result, and encrypted capability envelope,
-8. returns the ticket view and capability.
+3. for an exact retry, decrypts the capability envelope with the recovery secret and verifies the capability hash before returning the original ticket result and capability (even if the active session has since closed),
+4. for a new request, requires the current session to be OPEN and the service to be active,
+5. allocates the next sequence and revision atomically, creates the ticket and cryptographically random capability, and calculates the initial estimate,
+6. atomically persists ticket, capability hash, sequence, revision, session-scoped event, receipt, safe result, and encrypted capability envelope,
+7. returns the ticket view and capability.
 
-A changed intent with the same ID fails with `IDEMPOTENCY_CONFLICT`; a wrong recovery secret fails with `JOIN_RECOVERY_INVALID` and returns no ticket data. The receipt stores no raw recovery secret or raw capability. Its capability envelope uses HKDF-SHA-256 and AES-256-GCM, with authenticated data bound to the queue/session/request/service/ticket. The join retry horizon is 24 hours. After a successful response, the client persists the ticket and capability before deleting the pending recovery secret.
+A changed intent with the same ID fails with `IDEMPOTENCY_CONFLICT`; a wrong recovery secret fails with `JOIN_RECOVERY_INVALID` and returns no ticket data. The receipt stores no raw recovery secret or raw capability. Its capability envelope uses HKDF-SHA-256 and AES-256-GCM, with authenticated data bound to the queue/session/request/service/ticket. The join retry horizon is 24 hours. `peopleAhead` counts earlier WAITING, CALLED, and SERVING tickets. The initial estimator currently uses configured default durations because D1 history sampling is not wired yet, with the session's fixed 300-second server-owned buffer. After a successful response, the client persists the ticket and capability before deleting the pending recovery secret.
 
 ## 6. Ticket lifecycle
 
@@ -262,7 +261,7 @@ Inputs:
 - active serving ticket durations and elapsed time,
 - eligible waiting-ticket durations ahead in Call Next order,
 - service capacity,
-- a server-supplied uncertainty buffer.
+- the server-owned 300-second V1 uncertainty buffer, snapshotted with the queue session.
 
 Algorithm:
 - use the median of valid recent durations when at least five samples exist; otherwise use the configured default,
@@ -271,7 +270,7 @@ Algorithm:
 - use the least-loaded lane after those tickets as the expected start,
 - return `[max(now, expectedStart - buffer), expectedStart + buffer]`.
 
-The calculator is deterministic, advisory, and does not alter queue ordering. The queue owner supplies ticket eligibility/order and the buffer; confidence labels are optional and omitted in the initial helper. No model/LLM is required.
+The calculator is deterministic, advisory, and does not alter queue ordering. The queue owner supplies ticket eligibility/order; V1 snapshots a server-owned 300-second buffer per session. Confidence labels are optional and omitted in the initial helper. No model/LLM is required.
 
 ## 14. History
 

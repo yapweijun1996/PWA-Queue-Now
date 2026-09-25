@@ -96,4 +96,11 @@
 
 **Why:** a committed join must be safely recoverable if its HTTP response is lost, without turning the idempotency identifier into a bearer credential or storing the raw ticket capability.
 
-**Consequence:** the client must persist the pending ID and recovery secret before sending, then replace them with the ticket/capability only after safely storing the response. Wrong proof returns no ticket data; altered intent conflicts. Retries are explicit and online-only, never background-replayed. The HKDF/AES-GCM envelope helper now passes Cloudflare runtime tests; atomic DO receipt handling, capability-hash verification, and replay behavior remain unimplemented.
+**Consequence:** the client must persist the pending ID and recovery secret before sending, then replace them with the ticket/capability only after safely storing the response. Wrong proof returns no ticket data; altered intent conflicts. Retries are explicit and online-only, never background-replayed. The DO now atomically persists the ticket, capability hash, encrypted receipt, sequence, revision, and session-scoped event; exact replay verifies the recovery secret and capability hash. Cloudflare runtime tests cover concurrent unique and duplicate joins. The public Worker still has no queue lookup or join route, and client-side pending recovery remains unimplemented.
+
+## ADR-017 — V1 return-window uncertainty buffer
+**Decision:** use a fixed server-owned 300-second uncertainty buffer for V1 return-window estimates and persist it in the queue-session configuration snapshot. The input is not client-controlled.
+
+**Why:** the existing product example shows a ten-minute range centered on the estimate. A fixed buffer keeps initial estimates deterministic until a merchant-facing policy is justified.
+
+**Consequence:** the estimator clamps the lower bound to now and may return a range shorter than ten minutes near immediate service. Changing the V1 value affects only newly opened sessions; each active session retains its snapshot.

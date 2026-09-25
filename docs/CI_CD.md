@@ -164,10 +164,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
+      - run: npm run test:dist
 ```
 
-Implementation should review/pin action versions according to supply-chain policy before production use.
+`npm test` builds workspace dependencies before running Vitest; `test:dist` verifies the compiled package through Node. Implementation should review/pin action versions according to supply-chain policy before production use.
 
 ## Quality rule
 

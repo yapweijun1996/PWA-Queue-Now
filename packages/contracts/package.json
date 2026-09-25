@@ -1,20 +1,24 @@
 {
-  "name": "@queuenow/queue-core",
+  "name": "@queuenow/contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./domain": {
+      "types": "./src/domain.ts",
+      "import": "./dist/domain.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@queuenow/contracts": "0.1.0"
+    "zod": "^4.6.5"
   }
 }

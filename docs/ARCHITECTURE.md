@@ -84,6 +84,10 @@ Examples:
 | Completed ticket summary | Queue DO first, then D1 projection |
 | UI cache | Browser, non-authoritative |
 
+## Package dependency direction
+
+`packages/contracts` owns shared queue enums, API request/response schemas, and inferred wire types. Its `domain` subpath contains only dependency-free domain values/types; runtime validators are isolated in the schema module. `packages/queue-core` may depend on `contracts/domain`, but contracts must never depend on queue-core. Workers validate untrusted requests with contracts before applying queue-core rules. A generic event envelope is not sufficient to prove role-specific payloads contain no private data.
+
 ## Web app
 
 V1 uses one Vite/React application to reduce duplicate bundles and UI infrastructure.

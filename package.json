@@ -16,8 +16,8 @@
     "format": "biome format biome.json package.json packages tsconfig.json --write",
     "format:check": "biome format biome.json package.json packages tsconfig.json",
     "lint": "biome lint packages",
-    "test": "vitest run",
-    "test:dist": "node packages/queue-core/test/dist-smoke.mjs",
+    "test": "npm run build && vitest run",
+    "test:dist": "node packages/contracts/test/dist-smoke.mjs && node packages/queue-core/test/dist-smoke.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

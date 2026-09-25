@@ -12,7 +12,7 @@ Legend:
 |---|---|---|---|
 | QN-001 | P0 | Initialize public monorepo/workspaces | DONE |
 | QN-002 | P0 | Add strict TypeScript, lint, format, unit-test baseline | DONE |
-| QN-003 | P0 | Define shared API/event schemas with runtime validation | TODO |
+| QN-003 | P0 | Define shared API/event schemas with runtime validation | DOING |
 | QN-004 | P1 | Add local Wrangler dev config and environment template | TODO |
 | QN-005 | P1 | Add version/build metadata contract | TODO |
 
@@ -23,7 +23,7 @@ Legend:
 | QN-010 | P0 | Implement lifecycle transition table | DONE |
 | QN-011 | P0 | Implement independent presence model | DONE |
 | QN-012 | P0 | Implement queue-session sequence allocator contract | DONE |
-| QN-013 | P0 | Implement join idempotency semantics | TODO |
+| QN-013 | P0 | Implement join idempotency semantics | BLOCKED |
 | QN-014 | P0 | Implement command idempotency semantics | TODO |
 | QN-015 | P0 | Implement queue revision/event envelope | TODO |
 | QN-016 | P1 | Implement deterministic return-window estimator | TODO |

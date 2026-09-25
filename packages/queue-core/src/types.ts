@@ -1,29 +1,10 @@
-export const lifecycleStatuses = [
-  "WAITING",
-  "CALLED",
-  "SERVING",
-  "COMPLETED",
-  "SKIPPED",
-  "CANCELLED",
-  "EXPIRED",
-] as const;
-
-export type LifecycleStatus = (typeof lifecycleStatuses)[number];
-
-export const presenceStatuses = ["UNKNOWN", "AWAY", "NEARBY", "RETURNED"] as const;
-
-export type PresenceStatus = (typeof presenceStatuses)[number];
-export type Actor = "CUSTOMER" | "STAFF" | "SYSTEM";
-
-export type LifecycleCommand =
-  | "JOIN"
-  | "CALL"
-  | "CANCEL"
-  | "EXPIRE"
-  | "START"
-  | "RECALL"
-  | "SKIP"
-  | "COMPLETE";
+export { lifecycleStatuses, presenceStatuses } from "@queuenow/contracts/domain";
+export type {
+  Actor,
+  LifecycleCommand,
+  LifecycleStatus,
+  PresenceStatus,
+} from "@queuenow/contracts/domain";
 
 export type QueueDomainErrorCode = "INVALID_TRANSITION" | "FORBIDDEN_ACTOR" | "INVALID_SEQUENCE";
 

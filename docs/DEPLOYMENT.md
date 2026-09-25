@@ -24,7 +24,7 @@ Use separate D1/DO bindings where practical to prevent test traffic touching pro
 1. Create Cloudflare account.
 2. Create D1 database.
 3. Configure Worker project.
-4. Configure SQLite-backed Durable Object migration.
+4. Declare the queue Durable Object binding and SQLite storage in Wrangler `exports` configuration.
 5. Configure static asset serving.
 6. Add environment bindings.
 7. Create least-privilege API token for GitHub Actions.
@@ -40,12 +40,14 @@ Custom domain is optional and not required for a zero-cost infrastructure pilot 
 
 ## Migrations
 
+Durable Object class lifecycle is declared in Wrangler `exports`; the SQLite application schema is versioned separately in the DO's `schema_migrations` table.
+
 Rules:
-- committed migration files
-- migration version tracked
-- CI validates migration syntax where possible
-- production migration is a controlled deploy step
-- destructive migration requires explicit plan/backup strategy
+- keep versioned SQL migration code in source control,
+- advance the schema version transactionally,
+- CI validates the Wrangler dry-run build and local SQLite runtime tests,
+- production schema changes ship only through an authorized, controlled deploy,
+- class deletion/storage-backend changes and destructive SQL migrations require an explicit plan/backup strategy.
 
 ## Deployment verification
 

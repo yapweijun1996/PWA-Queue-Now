@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "queuenow-queue-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-25",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "QUEUES",
+        "class_name": "QueueDurableObject"
+      }
+    ]
+  },
+  "exports": {
+    "QueueDurableObject": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  }
+}

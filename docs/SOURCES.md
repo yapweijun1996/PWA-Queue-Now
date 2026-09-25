@@ -47,6 +47,39 @@ Baseline used:
 - clients remain connected while eligible DO is hibernated
 - billable duration does not accrue while hibernated/eligible under documented behavior
 
+## SQLite-backed Durable Object Storage API
+
+Official:
+https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/
+
+Checked 2026-09-25 (page last updated 2026-09-21):
+- SQLite is the recommended storage backend for new Durable Object classes.
+- Use `ctx.storage.transactionSync()` for synchronous multi-statement SQL transactions; do not issue raw `BEGIN`/`SAVEPOINT` through `sql.exec()`.
+- Consume SQL cursors synchronously before crossing an `await` boundary.
+
+## Durable Object class exports
+
+Official:
+https://developers.cloudflare.com/durable-objects/reference/durable-objects-migrations/
+
+Checked 2026-09-25 (page last updated 2026-09-22):
+- declare the DO binding in `durable_objects.bindings` and the class storage backend in Wrangler's top-level `exports` configuration,
+- new live classes declare `storage: "sqlite"`,
+- class provisioning/lifecycle is distinct from application-owned SQL schema migrations.
+
+## Workers Vitest integration
+
+Official:
+https://developers.cloudflare.com/workers/testing/vitest-integration/
+
+and:
+https://developers.cloudflare.com/workers/testing/vitest-integration/write-your-first-test/
+
+Checked 2026-09-25 (pages last updated 2026-08-20):
+- Cloudflare recommends `@cloudflare/vitest-plugin` for local Worker unit/integration tests,
+- tests run in a local Miniflare Workers runtime,
+- the plugin requires Vitest 4.1 or later.
+
 ## Cloudflare D1 pricing
 
 Official:

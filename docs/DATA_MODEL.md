@@ -131,7 +131,14 @@ Never put raw capability/session secrets into metadata.
 
 ## Durable Object SQLite
 
-Each queue DO stores only that queue's operational state.
+Each queue DO stores only that queue's operational state. SQL schema migrations are versioned in a local `schema_migrations` table and applied transactionally by the DO.
+
+### schema_migrations
+
+```text
+version INTEGER PRIMARY KEY
+applied_at TEXT NOT NULL
+```
 
 ### queue_session
 
@@ -147,9 +154,10 @@ grace_period_seconds
 service_capacity
 config_snapshot_json
 queue_revision
+is_current
 ```
 
-Only one active session per DO. At session creation, initialize `next_sequence` from the queue definition's `start_sequence`.
+Only one active session per DO. A partial unique index enforces one `is_current = 1` row; closed sessions have `is_current = 0`. At session creation, initialize `next_sequence` from the queue definition's `start_sequence`.
 
 `next_sequence` is the next unused positive safe integer for that session. The pure `calculateNextSequenceAllocation` helper returns that value and its successor; it rejects invalid or overflowing counters. Display numbers concatenate the session prefix with the decimal sequence padded to a minimum of three digits (for example `A025` and `A1000`). Display numbers are presentation data, not credentials.
 

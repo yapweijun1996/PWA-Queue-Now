@@ -12,7 +12,7 @@ Fast and exhaustive:
 - serialization/schema validation
 
 ### Integration
-Cloudflare local runtime / Miniflare/Wrangler:
+`@cloudflare/vitest-plugin` with its local Miniflare Workers runtime, plus Wrangler:
 - Worker → DO routing
 - DO SQLite persistence
 - D1 projection

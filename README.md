@@ -62,24 +62,17 @@ The system does not require a self-managed VPS, Nginx, PM2, PostgreSQL server, o
 ```text
 queuenow/
 ├─ apps/
-│  └─ web/                 # customer, merchant and display routes
+│  └─ web/                 # planned: customer, merchant and display routes
 ├─ workers/
-│  └─ api/                 # Worker + Durable Object
+│  └─ queue-api/           # Worker health route and SQLite DO schema foundation
 ├─ packages/
-│  ├─ contracts/           # API/event schemas and shared types
-│  ├─ queue-core/          # deterministic queue rules
-│  └─ ui/                  # reusable UI primitives
-├─ tests/
-│  ├─ e2e/
-│  ├─ concurrency/
-│  └─ fixtures/
+│  ├─ contracts/           # shared API/event schemas and types
+│  └─ queue-core/          # deterministic queue rules
 ├─ docs/
-├─ .github/
-│  ├─ workflows/
-│  └─ dependabot.yml
-├─ wrangler.jsonc
+├─ .github/workflows/
 ├─ package.json
-└─ LICENSE
+├─ package-lock.json
+└─ biome.json
 ```
 
 ## Non-negotiable invariants

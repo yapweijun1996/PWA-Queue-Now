@@ -1,0 +1,12 @@
+{
+  "name": "@queuenow/queue-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir=dist",
+    "dev": "wrangler dev --local",
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "wrangler types && tsc --noEmit -p tsconfig.json"
+  }
+}

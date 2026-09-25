@@ -13,7 +13,7 @@ Legend:
 | QN-001 | P0 | Initialize public monorepo/workspaces | DONE |
 | QN-002 | P0 | Add strict TypeScript, lint, format, unit-test baseline | DONE |
 | QN-003 | P0 | Define shared API/event schemas with runtime validation | DOING |
-| QN-004 | P1 | Add local Wrangler dev config and environment template | TODO |
+| QN-004 | P1 | Add local Wrangler dev config and environment template | DOING |
 | QN-005 | P1 | Add version/build metadata contract | TODO |
 
 ## Queue Core
@@ -33,7 +33,7 @@ Legend:
 
 | ID | Pri | Task | Status |
 |---|---|---|---|
-| QN-020 | P0 | Create SQLite-backed Queue Durable Object | TODO |
+| QN-020 | P0 | Create SQLite-backed Queue Durable Object | DONE |
 | QN-021 | P0 | Persist queue session/config snapshot | TODO |
 | QN-022 | P0 | Implement atomic anonymous join | TODO |
 | QN-023 | P0 | Implement atomic Call Next | TODO |

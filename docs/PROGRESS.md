@@ -21,15 +21,15 @@ The npm workspace, strict TypeScript/quality baseline, and GitHub Actions CI wor
 | PWA rules | 100% | PWA_STANDARD |
 | CI/CD plan | 100% | CI_CD |
 | Test strategy | 100% | TESTING |
-| Implementation | 7% | Workspace/CI foundation, tested queue-core helpers, initial API/event schemas, revision/idempotency decisions, and deterministic estimator; no runtime or user flows yet |
+| Implementation | 8% | Workspace/CI foundation, tested queue-core helpers, initial API/event schemas, deterministic estimator, and a tested Worker/SQLite DO schema foundation; no business routes or user flows yet |
 | Production deployment | 0% | Not started |
 | Pilot evidence | 0% | Not started |
 
 ## Overall delivery estimate
 
-**27%**
+**28%**
 
-Reason: product/engineering design is substantially defined and initial queue-core/shared-schema code is tested. Runtime, customer/merchant/display flows, deployment, and real-world evidence remain absent; documentation or unit tests alone are not product completion.
+Reason: product/engineering design is substantially defined and initial queue-core/shared-schema code is tested in Node and the Cloudflare local runtime. Product operations, customer/merchant/display flows, deployment, and real-world evidence remain absent; documentation or unit tests alone are not product completion.
 
 ## Current verified decisions
 
@@ -51,18 +51,20 @@ Reason: product/engineering design is substantially defined and initial queue-co
 - Command retries replay only on an exact command ID, actor scope, command type, and request-fingerprint match; the pure helper does not persist receipts.
 - WebSocket sends only strict `queue.changed` revision/time invalidations; clients refetch role-authorized snapshots.
 - Return-window estimates use a five-valid-sample median threshold, concurrent-lane workload simulation, and an explicit server-supplied buffer; the helper is advisory and pure.
+- The Queue API Worker exposes only `/health`; its SQLite DO initializes schema v1, but no queue business operation is routed yet.
 - `packages/contracts` owns shared enums/schemas; queue-core imports only its dependency-free domain subpath.
 - Initial business niche: small barber/salon/beauty walk-in operations.
 - Free-tier-first, not “guaranteed free forever.”
 
 ## Latest local verification
 
-On 2026-09-25, `npm ci`, lint, format check, strict TypeScript typecheck, all 584 Vitest cases, both workspace builds, and Node smoke tests of both built packages passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
+On 2026-09-25, `npm ci`, format/lint checks, strict TypeScript typechecks (including generated Wrangler types), the Wrangler dry-run build, 584 Node Vitest cases, 2 Cloudflare-runtime Vitest cases, and both compiled-package smoke tests passed. Dependency audit reported zero vulnerabilities. The GitHub Actions workflow is configured but has not yet been run on GitHub.
 
 ## Next implementation gate
 
-Finish the remaining M1 contracts and tests before backend/UI work:
-- complete shared API schema coverage and review the retry/capability recovery contract,
+Build the first persisted queue-flow slice on top of the Worker scaffold, keeping join retries gated on the capability-recovery decision:
+- complete shared API schema coverage and document the unresolved retry/capability recovery contract,
+- persist queue session/config snapshots and route authorized operations through the DO,
 - transactional DO implementation of joins, commands, receipts, revisions, and persisted events,
 - wire the pure estimator to bounded history samples and select the runtime buffer policy,
 - runtime/API/browser integration and concurrency/restart verification.

@@ -27,6 +27,19 @@ fork/branch
 → merge
 ```
 
+Local checks:
+
+```sh
+npm ci
+npm run lint
+npm run format:check
+npm run typecheck
+npm test
+npm run test:dist
+```
+
+`npm test` builds the workspaces (including a Wrangler dry run), runs Node unit tests, and runs Worker tests in the local Cloudflare runtime. Run the API Worker locally with `npm run dev --workspace @queuenow/queue-api`. These commands do not deploy to Cloudflare.
+
 ## Pull requests
 
 Include:

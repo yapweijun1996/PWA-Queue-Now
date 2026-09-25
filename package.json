@@ -13,17 +13,21 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "format": "biome format biome.json package.json packages tsconfig.json --write",
-    "format:check": "biome format biome.json package.json packages tsconfig.json",
-    "lint": "biome lint packages",
-    "test": "npm run build && vitest run",
+    "format": "biome format biome.json package.json packages workers tsconfig.json --write",
+    "format:check": "biome format biome.json package.json packages workers tsconfig.json",
+    "lint": "biome lint packages workers",
+    "test": "npm run build && vitest run packages && npm run test:worker",
     "test:dist": "node packages/contracts/test/dist-smoke.mjs && node packages/queue-core/test/dist-smoke.mjs",
-    "typecheck": "tsc --noEmit"
+    "test:worker": "npm run test --workspace @queuenow/queue-api",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspace @queuenow/queue-api"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
+    "@cloudflare/vitest-plugin": "^1.2.7",
+    "@types/node": "^25.9.8",
     "typescript": "^5.9.3",
     "vite": "^8.3.1",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "wrangler": "^4.140.0"
   }
 }

@@ -30,6 +30,12 @@
 - `CONTRIBUTING.md` — contribution rules
 - `SOURCES.md` — dated external service sources
 
+## Current code workspaces
+- `packages/contracts` — shared Zod schemas and wire types
+- `packages/queue-core` — pure queue transition, sequence, idempotency, revision, and estimator logic
+- `workers/queue-api` — Wrangler Worker and SQLite Durable Object schema foundation; only `/health` is routed publicly so far
+- `apps/web` — planned; not yet created
+
 ## Recommended first reading order
 
 ```text

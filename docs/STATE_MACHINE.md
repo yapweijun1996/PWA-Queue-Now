@@ -195,9 +195,11 @@ Closing must not silently destroy active tickets. The close UI must explain how 
 
 ## Revisions
 
-Every accepted authoritative mutation increments `queue_revision`.
+A new queue session starts at revision `0`. `advanceQueueRevision` calculates the next non-negative safe integer and fails closed on invalid/overflowing values; it does not persist anything.
 
-Rejected/duplicate-replayed idempotent commands do not produce a second logical mutation.
+Every accepted authoritative mutation increments `queue_revision`. The DO must commit the state change, new revision, and event atomically.
+
+Rejected/duplicate-replayed idempotent commands do not produce a second logical mutation or revision.
 
 Clients use revision to:
 - order events,

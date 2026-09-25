@@ -14,6 +14,7 @@ export {
   PresenceStatusSchema,
   QueueRevisionSchema,
   QueueStatusSchema,
+  type QueueRevision,
   UpdatePresenceRequestSchema,
   type CancelTicketRequest,
   type JoinQueueRequest,

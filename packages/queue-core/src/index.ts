@@ -1,3 +1,4 @@
+export { advanceQueueRevision } from "./revision.js";
 export {
   calculateNextSequenceAllocation,
   formatDisplayNumber,

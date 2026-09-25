@@ -25,7 +25,7 @@ Legend:
 | QN-012 | P0 | Implement queue-session sequence allocator contract | DONE |
 | QN-013 | P0 | Implement join idempotency semantics | BLOCKED |
 | QN-014 | P0 | Implement command idempotency semantics | TODO |
-| QN-015 | P0 | Implement queue revision/event envelope | TODO |
+| QN-015 | P0 | Implement queue revision/event envelope | DOING |
 | QN-016 | P1 | Implement deterministic return-window estimator | TODO |
 | QN-017 | P0 | Add exhaustive legal/illegal transition tests | DONE |
 

@@ -72,6 +72,7 @@ describe("customer API schemas", () => {
     expect(QueueRevisionSchema.safeParse(-1).success).toBe(false);
     expect(QueueRevisionSchema.safeParse(Number.MAX_SAFE_INTEGER + 1).success).toBe(false);
     expect(QueueRevisionSchema.safeParse(42).success).toBe(true);
+    expect(QueueRevisionSchema.safeParse(Number.MAX_SAFE_INTEGER).success).toBe(true);
   });
 
   it("validates presence and cancel command identifiers", () => {

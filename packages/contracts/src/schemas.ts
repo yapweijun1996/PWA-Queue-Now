@@ -6,6 +6,7 @@ export const PresenceStatusSchema = z.enum(presenceStatuses);
 export const QueueStatusSchema = z.enum(queueStatuses);
 
 export const QueueRevisionSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+export type QueueRevision = z.infer<typeof QueueRevisionSchema>;
 
 const ReturnWindowSchema = z
   .object({
